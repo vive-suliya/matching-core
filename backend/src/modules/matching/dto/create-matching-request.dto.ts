@@ -1,6 +1,7 @@
 import { IsEnum, IsObject, IsOptional, ValidateNested, IsString } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
+import { StrategySettingsDto } from './strategy-settings.dto';
 
 export enum RequesterType {
     USER = 'user',
@@ -59,4 +60,10 @@ export class CreateMatchingRequestDto {
     @ValidateNested()
     @Type(() => MatchingFiltersDto)
     filters: MatchingFiltersDto;
+
+    @ApiProperty({ type: StrategySettingsDto, required: false })
+    @IsOptional()
+    @ValidateNested()
+    @Type(() => StrategySettingsDto)
+    settings?: StrategySettingsDto;
 }
