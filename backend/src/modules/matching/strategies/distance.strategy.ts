@@ -1,40 +1,75 @@
 
 import { BaseMatchingStrategy } from './base.strategy';
-import { MatchableEntity } from '../entities/matchable-entity.interface';
+import { Match, MatchableEntity } from '../entities/matchable-entity.interface';
+import { PreferenceStrategy } from './preference.strategy';
 
 export class DistanceStrategy extends BaseMatchingStrategy {
     name = 'distance';
+    private preferenceStrategy = new PreferenceStrategy();
 
     score(requester: MatchableEntity, candidate: MatchableEntity): number {
-        // Check if location data exists
-        if (!requester.profile.location || !candidate.profile.location) {
-            return 0;
+        // DB에서 미리 계산된 거리가 있다면 사용 (미터 단위 -> 킬로미터 단위 변환)
+        let distance = candidate.profile.distance !== undefined ? candidate.profile.distance / 1000 : undefined;
+
+        // 데이터가 없으면 직접 계산 (Fallback)
+        if (distance === undefined) {
+            if (!requester.profile.location || !candidate.profile.location) {
+                return 0;
+            }
+            distance = this.calculateDistance(
+                requester.profile.location,
+                candidate.profile.location,
+            );
         }
 
-        // Calculate distance (Haversine formula)
-        const distance = this.calculateDistance(
-            requester.profile.location,
-            candidate.profile.location,
-        );
-
         // Distance based score (closer is better)
-        // Example: <1km = 100, <5km = 80, <10km = 50, <20km = 30, else 10
         let distanceScore = 0;
-        if (distance <= 1) distanceScore = 100;
-        else if (distance <= 5) distanceScore = 80;
+        if (distance <= 0.5) distanceScore = 100;
+        else if (distance <= 1) distanceScore = 95;
+        else if (distance <= 3) distanceScore = 85;
+        else if (distance <= 5) distanceScore = 70;
         else if (distance <= 10) distanceScore = 50;
         else if (distance <= 20) distanceScore = 30;
         else distanceScore = 10;
 
-        // Optional: Rating Score
+        // Rating Score
         const ratingScore = candidate.profile.averageRating
             ? candidate.profile.averageRating * 10
-            : 50;
+            : 70;
 
-        // Final Score (Weighted Average)
-        const finalScore = distanceScore * 0.7 + ratingScore * 0.3;
+        // Final Score
+        const finalScore = distanceScore * 0.8 + ratingScore * 0.2;
 
-        return Math.round(finalScore * 100) / 100; // Round to 2 decimal places
+        return Math.round(finalScore * 100) / 100;
+    }
+
+    execute(requester: MatchableEntity, candidates: MatchableEntity[], settings?: any): Match[] {
+        return candidates
+            .map(candidate => {
+                const finalScore = this.score(requester, candidate);
+                const pScore = candidate.profile?.category_match_score !== undefined
+                    ? Number(candidate.profile.category_match_score)
+                    : this.preferenceStrategy.score(requester, candidate);
+
+                let explanation = '';
+                if (settings?.enableExplanation) {
+                    const dist = candidate.profile?.distance ? (candidate.profile.distance / 1000).toFixed(1) + 'km' : 'unknown';
+                    explanation = `거리가 약 ${dist}로 매우 가깝습니다.`;
+                }
+
+                return {
+                    entities: [requester, candidate],
+                    score: finalScore,
+                    status: 'proposed' as const,
+                    metadata: {
+                        distance: candidate.profile?.distance,
+                        explanation: explanation,
+                        preferenceMatch: pScore
+                    },
+                };
+            })
+            .sort((a, b) => b.score - a.score)
+            .slice(0, 50);
     }
 
     private calculateDistance(

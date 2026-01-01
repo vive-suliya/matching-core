@@ -2,40 +2,46 @@
 import React from 'react';
 
 interface Props {
-    steps: { number: number; title: string }[];
+    steps: { number: number; title: string; description?: string }[];
     currentStep: number;
 }
 
 export default function StepIndicator({ steps, currentStep }: Props) {
     return (
-        <div className="flex justify-center items-center w-full mb-12">
+        <div className="flex justify-between items-start w-full relative">
+            {/* Background Line */}
+            <div className="absolute top-5 left-0 w-full h-px bg-white/5 z-0 hidden md:block" />
+
             {steps.map((step, index) => {
                 const isCompleted = step.number < currentStep;
                 const isCurrent = step.number === currentStep;
 
                 return (
-                    <div key={step.number} className="flex items-center">
-                        <div className="flex flex-col items-center relative">
-                            <div
-                                className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-all duration-300 border-2 z-10 ${isCompleted
-                                        ? 'bg-purple-600 border-purple-600 text-white'
-                                        : isCurrent
-                                            ? 'bg-[#030014] border-purple-500 text-purple-400 shadow-[0_0_15px_rgba(168,85,247,0.5)]'
-                                            : 'bg-[#030014] border-gray-700 text-gray-600'
-                                    }`}
-                            >
-                                {isCompleted ? '✓' : step.number}
-                            </div>
-                            <div className={`absolute -bottom-8 w-32 text-center text-xs font-medium transition-colors duration-300 ${isCurrent ? 'text-purple-400' : 'text-gray-500'
-                                }`}>
-                                {step.title}
-                            </div>
+                    <div key={step.number} className="flex flex-col items-center relative z-10 group flex-1">
+                        <div
+                            className={`
+                                w-10 h-10 rounded-xl flex items-center justify-center font-black text-xs transition-all duration-700 border
+                                ${isCompleted
+                                    ? 'bg-purple-600 border-purple-600 text-white shadow-[0_10px_20px_rgba(168,85,247,0.3)]'
+                                    : isCurrent
+                                        ? 'bg-white border-white text-black shadow-[0_0_30px_rgba(255,255,255,0.2)] scale-110'
+                                        : 'bg-black border-white/10 text-gray-600 group-hover:border-white/20'
+                                }
+                            `}
+                        >
+                            {isCompleted ? '✓' : `0${step.number}`}
                         </div>
 
-                        {index < steps.length - 1 && (
-                            <div className={`w-12 md:w-24 h-0.5 mx-2 transition-colors duration-300 ${isCompleted ? 'bg-purple-600' : 'bg-gray-800'
-                                }`} />
-                        )}
+                        <div className="mt-6 flex flex-col items-center gap-1">
+                            <span className={`text-[10px] font-black uppercase tracking-[0.2em] transition-colors duration-500 ${isCurrent ? 'text-white' : 'text-gray-600'}`}>
+                                {step.title}
+                            </span>
+                            {step.description && (
+                                <span className="text-[9px] font-bold text-gray-700 uppercase tracking-tighter hidden md:block">
+                                    {step.description}
+                                </span>
+                            )}
+                        </div>
                     </div>
                 );
             })}

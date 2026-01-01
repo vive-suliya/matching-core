@@ -31,7 +31,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased selection:bg-purple-500/30`}
       >
         <Header />
-        <main className="pt-16">
+        <main>
           {children}
         </main>
         <Toaster position="top-center" richColors theme="dark" />
