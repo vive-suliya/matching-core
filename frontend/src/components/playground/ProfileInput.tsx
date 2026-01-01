@@ -32,7 +32,7 @@ export default function ProfileInput({ onNext, onBack }: Props) {
         defaultValues: {
             latitude: profile.location?.[0] || 37.5665,
             longitude: profile.location?.[1] || 126.9780,
-            radius: (profile.radius ? profile.radius / 1000 : 5),
+            radius: (profile.radius ? profile.radius / 1000 : 50),
         },
     });
 
@@ -40,88 +40,107 @@ export default function ProfileInput({ onNext, onBack }: Props) {
         setProfile({
             location: [data.latitude, data.longitude],
             radius: data.radius * 1000, // km to meters
-            categories: data.categories,
+            categories: data.categories || [],
         });
         onNext();
     };
 
     return (
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-8 animate-fade-in">
-            <div className="glass-card p-8 rounded-xl border border-white/10">
-                <h2 className="text-2xl font-bold mb-6 text-white">매칭 조건 설정</h2>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-12 animate-fade-in-up">
+            <div className="space-y-12">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-16">
                     {/* Location Inputs */}
-                    <div className="space-y-4">
-                        <h3 className="text-lg font-semibold text-purple-400">📍 현재 위치</h3>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm text-gray-400 mb-2">위도 (Latitude)</label>
+                    <div className="space-y-8">
+                        <div className="flex items-center gap-4">
+                            <div className="w-1.5 h-6 bg-purple-500 rounded-full"></div>
+                            <h3 className="text-sm font-black uppercase tracking-[0.3em] text-white">매칭 기준 위치</h3>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-6">
+                            <div className="space-y-4">
+                                <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest px-1">위도 (Latitude)</label>
                                 <input
                                     type="number"
                                     step="0.0001"
                                     {...register('latitude', { valueAsNumber: true })}
-                                    className="w-full px-4 py-3 bg-[#0a0a0a] border border-white/10 rounded-lg focus:border-purple-500 focus:outline-none transition-colors text-white"
+                                    className="w-full bg-white/[0.02] border border-white/5 rounded-2xl px-6 py-5 text-sm font-mono text-white focus:border-purple-500/50 outline-none transition-all shadow-inner"
                                 />
-                                {errors.latitude && <p className="text-red-400 text-xs mt-1">{errors.latitude.message}</p>}
+                                {errors.latitude && <p className="text-red-400 text-[10px] font-bold px-1">{errors.latitude.message}</p>}
                             </div>
-                            <div>
-                                <label className="block text-sm text-gray-400 mb-2">경도 (Longitude)</label>
+                            <div className="space-y-4">
+                                <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest px-1">경도 (Longitude)</label>
                                 <input
                                     type="number"
                                     step="0.0001"
                                     {...register('longitude', { valueAsNumber: true })}
-                                    className="w-full px-4 py-3 bg-[#0a0a0a] border border-white/10 rounded-lg focus:border-purple-500 focus:outline-none transition-colors text-white"
+                                    className="w-full bg-white/[0.02] border border-white/5 rounded-2xl px-6 py-5 text-sm font-mono text-white focus:border-purple-500/50 outline-none transition-all shadow-inner"
                                 />
-                                {errors.longitude && <p className="text-red-400 text-xs mt-1">{errors.longitude.message}</p>}
+                                {errors.longitude && <p className="text-red-400 text-[10px] font-bold px-1">{errors.longitude.message}</p>}
                             </div>
                         </div>
                     </div>
 
                     {/* Radius Input */}
-                    <div className="space-y-4">
-                        <h3 className="text-lg font-semibold text-purple-400">🎯 탐색 범위</h3>
-                        <div>
-                            <label className="block text-sm text-gray-400 mb-2">반경 (km)</label>
-                            <input
-                                type="number"
-                                min="1"
-                                max="100"
-                                {...register('radius', { valueAsNumber: true })}
-                                className="w-full px-4 py-3 bg-[#0a0a0a] border border-white/10 rounded-lg focus:border-purple-500 focus:outline-none transition-colors text-white"
-                            />
-                            {errors.radius && <p className="text-red-400 text-xs mt-1">{errors.radius.message}</p>}
+                    <div className="space-y-8">
+                        <div className="flex items-center gap-4">
+                            <div className="w-1.5 h-6 bg-indigo-500 rounded-full"></div>
+                            <h3 className="text-sm font-black uppercase tracking-[0.3em] text-white">탐색 반경 설정</h3>
+                        </div>
+                        <div className="space-y-4">
+                            <label className="text-[10px] font-black text-gray-600 uppercase tracking-widest px-1">반경 (킬로미터)</label>
+                            <div className="relative">
+                                <input
+                                    type="number"
+                                    min="1"
+                                    max="100"
+                                    {...register('radius', { valueAsNumber: true })}
+                                    className="w-full bg-white/[0.02] border border-white/5 rounded-2xl px-6 py-5 text-sm font-mono text-white focus:border-indigo-500/50 outline-none transition-all shadow-inner"
+                                />
+                                <div className="absolute right-6 top-1/2 -translate-y-1/2 text-[10px] font-black text-gray-600 uppercase tracking-widest">KM</div>
+                            </div>
+                            {errors.radius && <p className="text-red-400 text-[10px] font-bold px-1">{errors.radius.message}</p>}
                         </div>
                     </div>
                 </div>
 
                 {/* Categories */}
-                <div className="mt-8">
-                    <label className="block text-sm font-medium mb-4 text-gray-400">카테고리 (다중 선택 가능)</label>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="space-y-8 pt-8">
+                    <div className="flex items-center gap-4">
+                        <div className="w-1.5 h-6 bg-blue-500 rounded-full"></div>
+                        <h3 className="text-sm font-black uppercase tracking-[0.3em] text-white">관심 카테고리</h3>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
                         {['sports', 'study', 'gaming', 'travel', 'dating', 'business'].map(cat => (
-                            <label key={cat} className="flex items-center space-x-3 p-3 rounded-lg border border-white/10 hover:bg-white/5 cursor-pointer">
-                                <input type="checkbox" value={cat} {...register('categories')} className="w-4 h-4 accent-purple-600 rounded" />
-                                <span className="capitalize text-gray-300">{cat}</span>
+                            <label key={cat} className="group relative cursor-pointer">
+                                <input type="checkbox" value={cat} {...register('categories')} className="peer sr-only" />
+                                <div className="
+                                    px-6 py-4 rounded-2xl border border-white/5 bg-white/[0.02] text-center transition-all duration-500
+                                    peer-checked:bg-white peer-checked:text-black peer-checked:scale-105 peer-checked:shadow-[0_10px_20px_rgba(255,255,255,0.1)]
+                                    group-hover:border-white/20
+                                ">
+                                    <span className="text-[10px] font-black uppercase tracking-widest">
+                                        {cat === 'sports' ? '스포츠' : cat === 'study' ? '스터디' : cat === 'gaming' ? '게임' : cat === 'travel' ? '여행' : cat === 'dating' ? '연애' : '비즈니스'}
+                                    </span>
+                                </div>
                             </label>
                         ))}
                     </div>
                 </div>
             </div>
 
-            <div className="flex justify-between pt-4">
+            <div className="flex justify-between items-center pt-12 border-t border-white/5">
                 <button
                     type="button"
                     onClick={onBack}
-                    className="px-6 py-3 text-gray-400 hover:text-white transition-colors"
+                    className="text-[10px] font-black uppercase tracking-widest text-gray-500 hover:text-white transition-colors flex items-center gap-2"
                 >
-                    ← 이전 단계
+                    <span className="text-lg">←</span> 이전으로
                 </button>
                 <button
                     type="submit"
-                    className="px-8 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-bold shadow-lg hover:shadow-purple-500/50 transition-all"
+                    className="px-12 py-5 bg-white text-black rounded-3xl font-black text-sm uppercase tracking-[0.3em] transition-all hover:scale-105 hover:shadow-[0_20px_40px_rgba(255,255,255,0.2)]"
                 >
-                    다음 단계 →
+                    조건 확정 📍
                 </button>
             </div>
         </form>
