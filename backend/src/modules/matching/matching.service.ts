@@ -5,8 +5,12 @@ import type { Cache } from 'cache-manager';
 import { SupabaseService } from '../../database/supabase.service';
 import { CreateMatchingRequestDto, MatchingStrategy } from './dto/create-matching-request.dto';
 import { DistanceStrategy } from './strategies/distance.strategy';
+import { PreferenceStrategy } from './strategies/preference.strategy';
+import { HybridStrategy } from './strategies/hybrid.strategy';
 import { BaseMatchingStrategy } from './strategies/base.strategy';
 import { MatchableEntity, Match } from './entities/matchable-entity.interface';
+import { StrategySettings, StrategySettingsSchema } from './dto/strategy-settings.dto';
+import { z } from 'zod';
 
 @Injectable()
 export class MatchingService {
@@ -18,6 +22,8 @@ export class MatchingService {
     ) {
         this.strategies = new Map([
             [MatchingStrategy.DISTANCE, new DistanceStrategy()],
+            [MatchingStrategy.PREFERENCE, new PreferenceStrategy()],
+            [MatchingStrategy.HYBRID, new HybridStrategy()],
         ]);
     }
 
@@ -47,6 +53,7 @@ export class MatchingService {
                 target_type: dto.targetType,
                 strategy: dto.strategy,
                 filters: dto.filters,
+                settings: dto.settings,
                 status: 'active',
             })
             .select()
@@ -60,7 +67,8 @@ export class MatchingService {
                 ...dto,
                 requester_id: dto.requesterId,
                 requester_type: dto.requesterType,
-                status: 'active'
+                status: 'active',
+                settings: dto.settings || { useDistance: true, usePreference: true, distanceWeight: 0.7, preferenceWeight: 0.3 }
             };
             // Trigger processMatching even with mock
             this.processMatching(mockRequest.id, mockRequest).catch(err => console.error(err));
@@ -70,7 +78,7 @@ export class MatchingService {
         console.log(`[MatchingService] Request saved to DB: ${request.id}`);
 
         // 2. Process Matching Asynchronously (Fire & Forget for MVP)
-        this.processMatching(request.id).catch(err => console.error(err));
+        this.processMatching(request.id, request).catch(err => console.error(err));
 
         return request;
     }
@@ -94,12 +102,21 @@ export class MatchingService {
                 return;
             }
 
-            // 2. Fetch Requester
-            const requester = await this.getEntity(request.requester_id, request.requester_type);
-            console.log(`[MatchingService] Requester found: ${requester.id}`);
+            // 2 & 3. Fetch Requester and Candidates in parallel for speed
+            const settings = StrategySettingsSchema.parse(request.settings || {});
 
-            // 3. Fetch Candidates (with filters)
-            const candidates = await this.getCandidates(request);
+            const [requester, candidates] = await Promise.all([
+                this.getEntity(request.requester_id, request.requester_type),
+                this.getCandidates(request, settings)
+            ]);
+
+            // 시뮬레이션을 위해 플레이그라운드 필터 반영
+            if (request.filters?.categories) {
+                requester.profile.categories = request.filters.categories;
+            }
+            if (request.filters?.location) {
+                requester.profile.location = request.filters.location;
+            }
 
             // 4. Execute Strategy
             const strategy = this.strategies.get(request.strategy) || this.strategies.get('distance');
@@ -107,8 +124,8 @@ export class MatchingService {
                 throw new Error(`Unknown strategy: ${request.strategy}`);
             }
 
-            const matches = strategy.execute(requester, candidates);
-            console.log(`[MatchingService] Strategy executed, matches generated: ${matches.length}`);
+            const matches = strategy.execute(requester, candidates, settings);
+            console.log(`[MatchingService] Strategy executed in parallel mode, matches: ${matches.length}`);
 
             // 5. Save Matches to DB
             if (matches.length > 0) {
@@ -137,8 +154,19 @@ export class MatchingService {
             } else {
                 console.log(`[MatchingService] No matches found for ${requestId}`);
             }
+
+            // 6. Mark Request as Completed
+            await this.client
+                .from('matching_requests')
+                .update({ status: 'completed' })
+                .eq('id', requestId);
+
         } catch (e) {
             console.error('[MatchingService] Matching Process Error:', e);
+            await this.client
+                .from('matching_requests')
+                .update({ status: 'failed' })
+                .eq('id', requestId);
         }
     }
 
@@ -181,66 +209,131 @@ export class MatchingService {
         };
     }
 
-    private async getCandidates(request: any): Promise<MatchableEntity[]> {
-        console.log(`[MatchingService] Fetching candidates from ${request.target_type === 'user' ? 'users' : 'teams'}...`);
-        const table = request.target_type === 'user' ? 'users' : 'teams';
-        const { data } = await this.client
-            .from(table)
-            .select('*')
-            .limit(50);
+    private async getCandidates(
+        request: any,
+        settings: StrategySettings
+    ): Promise<MatchableEntity[]> {
+        console.log(`[MatchingService] Fetching candidates for ${request.target_type}...`);
 
-        if (!data || data.length === 0) {
-            console.log(`[MatchingService] No data in ${table}, returning mock candidates`);
-            // Return Mock Candidates
-            return Array.from({ length: 5 }).map((_, i) => ({
-                id: `candidate-${i}`,
-                type: request.target_type,
-                profile: {
-                    display_name: `Candidate ${i + 1}`,
-                    name: `Candidate ${i + 1}`,
-                    location: [
-                        37.5665 + (Math.random() - 0.5) * 0.1, // Random nearby location
-                        126.9780 + (Math.random() - 0.5) * 0.1
-                    ],
-                    averageRating: 3 + Math.random() * 2 // Random rating 3~5
-                }
-            }));
-        }
+        const lat = request.filters?.location?.[0] || 37.5665;
+        const lng = request.filters?.location?.[1] || 126.9780;
+        const radius = request.filters?.radius || 5000;
+        const requiredCategories = request.filters?.categories || [];
 
-        console.log(`[MatchingService] Found ${data.length} candidates in DB`);
-        return data.map(entity => {
-            const location = this.parseLocation(entity.location) || [37.5665, 126.9780];
-            return {
+        try {
+            const { data, error } = await this.client.rpc('get_candidates_v2', {
+                p_lat: lat,
+                p_lng: lng,
+                p_radius: radius,
+                p_target_type: request.target_type,
+                p_use_negative_filter: settings.enableNegativeFilter,
+                p_requester_id: request.requester_id,
+                p_required_categories: requiredCategories
+            });
+
+            if (error) {
+                console.error(`[MatchingService] RPC Error: ${error.message}`);
+                throw new Error(`PostGIS RPC failed: ${error.message}`);
+            }
+
+            if (!data || data.length === 0) {
+                console.log(`[MatchingService] No candidates found in radius ${radius}m, using mocks for demo`);
+                return this.getMockCandidates(request);
+            }
+
+            console.log(`[MatchingService] Found ${data.length} candidates using PostGIS RPC`);
+            return data.map(entity => ({
                 id: entity.id,
                 type: request.target_type,
-                profile: { ...entity, location },
-            };
-        });
+                profile: {
+                    ...entity,
+                    location: this.parseLocation(entity.location),
+                    distance: entity.distance // Use pre-calculated distance
+                },
+            }));
+        } catch (error) {
+            console.error(`[MatchingService] getCandidates failed, attempting fallback:`, error.message);
+            try {
+                return await this.fallbackGetCandidates(request);
+            } catch (fallbackError) {
+                console.error(`[MatchingService] Fallback also failed:`, fallbackError.message);
+                return this.getMockCandidates(request);
+            }
+        }
     }
 
-    async getMatchResults(requestId: string): Promise<any[]> {
-        console.log(`[MatchingService] Fetching results for ${requestId}...`);
+    private async fallbackGetCandidates(request: any): Promise<MatchableEntity[]> {
+        const table = request.target_type === 'user' ? 'users' : 'teams';
+        const { data, error } = await this.client.from(table).select('*').limit(50);
+
+        if (error) throw error;
+        if (!data || data.length === 0) return this.getMockCandidates(request);
+
+        return data.map(entity => ({
+            id: entity.id,
+            type: request.target_type,
+            profile: {
+                ...entity,
+                location: this.parseLocation(entity.location) || [37.5665, 126.9780]
+            },
+        }));
+    }
+
+    private getMockCandidates(request: any): MatchableEntity[] {
+        // Only provide mocks in development or if specifically enabled
+        const isDev = process.env.NODE_ENV === 'development' || !process.env.NODE_ENV;
+        if (!isDev) {
+            console.warn('[MatchingService] Skipping mock data in non-dev environment');
+            return [];
+        }
+
+        console.log(`[MatchingService] Returning mock candidates for ${request.target_type}`);
+        return Array.from({ length: 5 }).map((_, i) => ({
+            id: `candidate-${i}`,
+            type: request.target_type,
+            profile: {
+                display_name: `Candidate ${i + 1}`,
+                name: `Candidate ${i + 1}`,
+                location: [37.5665 + (Math.random() - 0.5) * 0.1, 126.9780 + (Math.random() - 0.5) * 0.1],
+                categories: ['sports', 'gaming']
+            }
+        }));
+    }
+
+    async getMatchResults(requestId: string) {
+        // 1. Check Request Status
+        const { data: request } = await this.client
+            .from('matching_requests')
+            .select('status')
+            .eq('id', requestId)
+            .single();
+
+        const status = request?.status || 'active';
+
+        // 2. Fetch Matches
         const { data: matches, error } = await this.client
             .from('matches')
             .select('*')
-            .eq('request_id', requestId)
-            .order('score', { ascending: false });
+            .eq('request_id', requestId);
 
+        // 3. Handle Mock Logic
         if ((error || !matches || matches.length === 0) && requestId.startsWith('mock-')) {
             console.log(`[MatchingService] Returning mock results for ${requestId}`);
-            return Array.from({ length: 3 }).map((_, i) => ({
+            const mockResults = Array.from({ length: 3 }).map((_, i) => ({
                 id: `match-${i}`,
-                entityB: { name: `Candidate ${i + 1}`, type: 'user' },
+                entityA: { id: 'requester-mock', type: 'user', name: 'Mock Requester' },
+                entityB: { id: `candidate-${i}`, name: `Candidate ${i + 1}`, type: 'user' },
                 score: 85 - i * 5,
                 status: 'proposed',
                 metadata: { distance: 1.2 + i * 0.5 },
                 createdAt: new Date().toISOString()
             }));
+            return { status: 'completed', results: mockResults };
         }
 
         if (error || !matches) {
             if (error) console.error(`[MatchingService] Error fetching matches: ${error.message}`);
-            return [];
+            return { status, results: [] };
         }
 
         console.log(`[MatchingService] Found ${matches.length} matches in DB`);
@@ -263,7 +356,10 @@ export class MatchingService {
             })
         );
 
-        return results;
+        return {
+            status,
+            results,
+        };
     }
 
     private async getEntityDetails(id: string, type: string): Promise<any> {
