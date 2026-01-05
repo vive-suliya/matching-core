@@ -1,5 +1,5 @@
 
-import { Injectable, Inject, Optional } from '@nestjs/common';
+import { Injectable, Inject, Optional, Logger, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import type { Cache } from 'cache-manager';
 import { SupabaseService } from '../../database/supabase.service';
@@ -15,6 +15,8 @@ import { z } from 'zod';
 @Injectable()
 export class MatchingService {
     private strategies: Map<string, BaseMatchingStrategy>;
+    private readonly logger = new Logger(MatchingService.name);
+    private readonly isDevelopment = process.env.NODE_ENV === 'development' || !process.env.NODE_ENV;
 
     constructor(
         private readonly supabase: SupabaseService,
@@ -191,16 +193,22 @@ export class MatchingService {
             .eq('id', id)
             .single();
 
-        // Mock if no data (for development)
         if (!data) {
-            return {
-                id,
-                type,
-                profile: { location: [37.5665, 126.9780] } // Mock location
-            };
+            if (this.isDevelopment) {
+                this.logger.warn(`Entity ${id} not found, returning mock data`);
+                return {
+                    id,
+                    type,
+                    profile: { location: [37.5665, 126.9780] }
+                };
+            }
+            throw new NotFoundException(`Entity ${id} (${type}) not found`);
         }
 
-        const location = this.parseLocation(data.location) || [37.5665, 126.9780];
+        const location = this.parseLocation(data.location);
+        if (!location) {
+            this.logger.warn(`Invalid location for entity ${id}, using default`);
+        }
 
         return {
             id: data.id,
@@ -232,33 +240,39 @@ export class MatchingService {
             });
 
             if (error) {
-                console.error(`[MatchingService] RPC Error: ${error.message}`);
-                throw new Error(`PostGIS RPC failed: ${error.message}`);
+                this.logger.error(`PostGIS RPC Error: ${error.message}`, error.stack);
+                throw new InternalServerErrorException(`PostGIS RPC failed: ${error.message}`);
             }
 
             if (!data || data.length === 0) {
-                console.log(`[MatchingService] No candidates found in radius ${radius}m, using mocks for demo`);
-                return this.getMockCandidates(request);
+                this.logger.log(`No candidates found in radius ${radius}m for ${request.requester_id}`);
+                return this.isDevelopment ? this.getMockCandidates(request) : [];
             }
 
-            console.log(`[MatchingService] Found ${data.length} candidates using PostGIS RPC`);
+            this.logger.log(`Found ${data.length} candidates using PostGIS RPC`);
             return data.map(entity => ({
                 id: entity.id,
                 type: request.target_type,
                 profile: {
                     ...entity,
                     location: this.parseLocation(entity.location),
-                    distance: entity.distance // Use pre-calculated distance
+                    distance: entity.distance
                 },
             }));
         } catch (error) {
-            console.error(`[MatchingService] getCandidates failed, attempting fallback:`, error.message);
-            try {
-                return await this.fallbackGetCandidates(request);
-            } catch (fallbackError) {
-                console.error(`[MatchingService] Fallback also failed:`, fallbackError.message);
-                return this.getMockCandidates(request);
+            this.logger.error(`getCandidates failed: ${error.message}`);
+
+            if (this.isDevelopment) {
+                this.logger.warn('Attempting fallback to legacy search in development mode');
+                try {
+                    return await this.fallbackGetCandidates(request);
+                } catch (fallbackError) {
+                    this.logger.error(`Fallback failed: ${fallbackError.message}`);
+                    return this.getMockCandidates(request);
+                }
             }
+
+            throw error;
         }
     }
 

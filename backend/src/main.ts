@@ -18,18 +18,31 @@ async function bootstrap() {
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
+      transformOptions: {
+        enableImplicitConversion: true,
+      },
     }),
   );
 
   // Swagger Config
   const config = new DocumentBuilder()
     .setTitle('Matching Core API')
-    .setDescription('Matching Core System API Documentation')
-    .setVersion('1.0')
+    .setDescription('범용 매칭 엔진 REST API 문서 - 고성능 연결 및 지능형 스코어링 시스템')
+    .setVersion('2.1')
+    .addTag('Matching', '매칭 요청 프로세싱 및 결과 관리')
+    .addTag('System', '상태 체크 및 모니터링')
     .addBearerAuth()
     .build();
+
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document);
+  SwaggerModule.setup('api/docs', app, document, {
+    swaggerOptions: {
+      persistAuthorization: true,
+      tagsSorter: 'alpha',
+      operationsSorter: 'alpha',
+    },
+    customSiteTitle: 'Matching Core API Docs',
+  });
 
   const port = process.env.PORT || 3001;
   await app.listen(port);
