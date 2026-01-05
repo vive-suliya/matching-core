@@ -8,13 +8,18 @@ import supabaseConfig from './config/supabase.config';
 import { DatabaseModule } from './database/database.module';
 import { MatchingModule } from './modules/matching/matching.module';
 
+import { ScheduleModule } from '@nestjs/schedule';
+
+import { validateEnv } from './config/env.validation';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
       load: [appConfig, supabaseConfig],
-      // envFilePath: '.env', // Default
+      validate: validateEnv,
     }),
+    ScheduleModule.forRoot(),
     CacheModule.register({
       isGlobal: true,
       ttl: 60 * 5, // 5 minutes

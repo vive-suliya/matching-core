@@ -97,5 +97,24 @@ matching-core/
 
 ---
 
+## 🚢 배포 (Deployment)
+
+본 프로젝트는 **Docker**와 **Cloudflare**를 환경에 최적화되어 설계되었습니다.
+
+### 1. Docker를 이용한 배포
+루트 디렉토리에 포함된 `docker-compose.yml`을 사용하여 전체 스택을 한 번에 구동할 수 있습니다.
+
+```bash
+# 환경 변수 설정 후 실행
+docker-compose up -d --build
+```
+
+### 2. Cloudflare 활용
+- **Frontend**: Cloudflare Pages를 통한 배포를 권장합니다. 하이드레이션 최적화와 글로벌 엣지 캐싱을 지원합니다.
+- **Backend**: Docker 컨테이너를 VPS에 올린 후 Cloudflare Tunnel을 통해 보안 연결을 설정하거나, Cloudflare Workers와 통합할 수 있습니다.
+- **Health Check**: 배포 후 `http://your-api/health`를 통해 시스템 상태를 모니터링하세요.
+
+---
+
 ## 📄 라이선스 (License)
 본 프로젝트는 MIT License를 따릅니다.
