@@ -31,11 +31,11 @@
 
 ```mermaid
 graph LR
-    User[End User] --> YourApp[Your Service (App/Web)]
-    YourApp -- 1. 매칭 요청 (REST API) --> MatchingCore[🧩 Matching Core Engine]
-    MatchingCore -- 2. 공간 필터링 (Spatial Filter) --> DB[(PostGIS DB)]
-    MatchingCore -- 3. 하이브리드 가중치 계산 (Scoring) --> MatchingCore
-    MatchingCore -- 4. 결과 반환 (JSON) --> YourApp
+    User["End User"] --> YourApp["Your Service (App/Web)"]
+    YourApp -- "1. 매칭 요청 (REST API)" --> MatchingCore["🧩 Matching Core Engine"]
+    MatchingCore -- "2. 공간 필터링 (Spatial Filter)" --> DB[("PostGIS DB")]
+    MatchingCore -- "3. 하이브리드 가중치 계산 (Scoring)" --> MatchingCore
+    MatchingCore -- "4. 결과 반환 (JSON)" --> YourApp
     YourApp --> User
 ```
 
