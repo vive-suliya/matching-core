@@ -8,6 +8,7 @@ import appConfig from './config/app.config';
 import supabaseConfig from './config/supabase.config';
 import { DatabaseModule } from './database/database.module';
 import { MatchingModule } from './modules/matching/matching.module';
+import { AuthModule } from './modules/auth/auth.module';
 
 import { ScheduleModule } from '@nestjs/schedule';
 
@@ -31,10 +32,12 @@ import { validateEnv } from './config/env.validation';
       ttl: 60 * 5, // 5 minutes
     }),
     DatabaseModule,
+    AuthModule,
     MatchingModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
 export class AppModule { }
+
 
