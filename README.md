@@ -1,120 +1,116 @@
-# 🚀 Matching Engine: 하이엔드 매칭 통합 솔루션
+# 🧩 Matching Core: Universal Matching Kernel
+> **"매칭의 바퀴를 다시 발명하지 마세요."**  
+> 실제 서비스를 위한 서비스, 강력하고 단순한 **범용 매칭 엔진**입니다.
 
-**Matching Engine**은 지리 공간 분석(PostGIS)과 다차원 성향 매칭 알고리즘을 결합한 하이엔드 매칭 연결 엔진입니다. 단순한 리스트 나열을 넘어, 비즈니스 로직에 최적화된 하이브리드 점수 산출(Scoring) 시스템을 제공합니다.
-
----
-
-## ✨ 핵심 기능 (Key Features)
-
-### 1. 지능형 매칭 전략 (Intelligent Strategies)
-- 📍 **공간 지능 (Spatial Intelligence)**: PostGIS를 활용한 고정밀 구면 좌표 연산 및 반경 내 후보자 실시간 필터링.
-- 🧠 **하이브리드 스코어링 (Hybrid Scoring)**: 거리 점수와 성향 일치도를 복합적으로 계산하여 최적의 매칭 순위 제공.
-- 🧪 **성향 분석 (Preference Matching)**: 카테고리 기반의 관심사 및 성향 일치도 분석 엔진.
-
-### 2. 프리미엄 사용자 경험 (Premium UX)
-- 🧪 **인터랙티브 플레이그라운드**: 매칭 로직을 단계별로 시뮬레이션하고 결과를 즉시 확인할 수 있는 전문가용 도구.
-- 💎 **Bento Grid 디자인**: 최신 웹 트렌드를 반영한 고품질 시각 요소와 유리 질감(Glassmorphism) UI.
-- ⚡ **실시간 피드백**: 초고속 검색 및 즉각적인 상태 변경 반영.
-
-### 3. 개발자 중심 설계 (Developer Experience)
-- 🛠️ **전략 패턴 아키텍처**: 비즈니스 요구사항에 따라 새로운 매칭 전략을 즉시 추가 가능.
-- 📖 **인터랙티브 API 문서**: Swagger를 통한 상세한 엔드포인트 설명 및 테스트 환경 제공.
+[![Backend Status](https://img.shields.io/badge/Backend-NestJS-red)](https://nestjs.com/)
+[![Frontend Status](https://img.shields.io/badge/Frontend-Next.js-black)](https://nextjs.org/)
+[![Database](https://img.shields.io/badge/Database-PostGIS-blue)](https://supabase.com/)
+[![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 
 ---
 
-## 🛠 기술 스택 (Tech Stack)
+## 💡 프로젝트의 본질 (The Philosophy)
 
-### Backend
-- **Core**: NestJS (TypeScript)
-- **Database**: Supabase (PostgreSQL + PostGIS)
-- **Documentation**: Swagger (OpenAPI)
-- **Validation**: Zod (Strategy-specific validation)
-- **Patterns**: Strategy Pattern, DTO Pattern
+**Matching Core**는 그 자체로 완성된 End-User 서비스가 아닙니다.  
+**당신의 서비스가 '매칭' 기능을 필요로 할 때 가져다 쓰는 강력한 엔진(Core)**입니다.
 
-### Frontend
-- **Framework**: Next.js 15 (App Router)
-- **Styling**: Tailwind CSS & Vanilla CSS (High-End Aesthetics)
-- **State**: Zustand (Store-based state management)
-- **Feedback**: Sonner (Toast notifications)
-- **Icons**: Lucide React & Custom SVGs
+- ❌ "팀 프로젝트 구인 사이트를 만든다" 
+- ✅ "**팀 프로젝트 구인 사이트**에 필요한 **매칭 기능**을 API 호출 하나로 해결한다"
+
+### 🎯 목표 (Goal)
+- **추상화 (Abstraction)**: 사용자-팀, 멘토-멘티, 게이머-게이머 등 모든 관계를 `Requester(요청자)`와 `Candidate(후보자)`의 관계로 단순화합니다.
+- **순수성 (Purity)**: 회원가입, 채팅 등 부가 기능은 배제하고, 오직 **'최적의 연결(Connection)'**이라는 본질에만 집중합니다.
+- **제어 용이성 (Controllability)**: 복잡한 로직을 블랙박스 안에 숨기고, 개발자는 단순한 API와 직관적인 대시보드로 엔진을 핸들링합니다.
 
 ---
 
-## 🚀 시작하기 (Getting Started)
+## 🏗️ 아키텍처 (Usage Architecture)
 
-### 사전 준비 사항
-- Node.js (v18+)
-- Supabase 프로젝트 및 API 키
+이 프로젝트는 귀하의 서비스(Application)의 **백엔드 모듈** 또는 **마이크로서비스**로 작동합니다.
 
-### 1. 데이터베이스 설정
-Supabase SQL Editor에서 다음 스냅샷들을 순서대로 실행하세요:
-1. `work-plan/sql/01_create_tables.sql` (테이블 생성)
-2. `work-plan/sql/03_migration_v2.sql` (성향 필드 마이그레이션)
-3. `work-plan/sql/04_seed_categories.sql` (카테고리 데이터 공급)
-
-### 2. 백엔드 설정
-`backend` 디렉토리에 `.env` 파일을 생성합니다:
-```env
-PORT=3001
-SUPABASE_URL=your_supabase_url
-SUPABASE_ANON_KEY=your_supabase_anon_key
-SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
-```
-설치 및 실행:
-```bash
-cd backend
-npm install
-npm run start:dev
-```
-
-### 3. 프론트엔드 설정
-`frontend` 디렉토리에 `.env.local` 파일을 생성합니다:
-```env
-NEXT_PUBLIC_API_URL=http://localhost:3001
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-```
-설치 및 실행:
-```bash
-cd frontend
-npm install
-npm run dev
+```mermaid
+graph LR
+    User[End User] --> YourApp[Your Service (App/Web)]
+    YourApp -- 1. 매칭 요청 (REST API) --> MatchingCore[🧩 Matching Core Engine]
+    MatchingCore -- 2. 후보자 검색 (PostGIS) --> DB[(Shared / Dedicated DB)]
+    MatchingCore -- 3. 알고리즘 계산 (Scoring) --> MatchingCore
+    MatchingCore -- 4. 결과 반환 (JSON) --> YourApp
+    YourApp --> User
 ```
 
 ---
 
-## 📖 프로젝트 구조 (Project Structure)
+## ✨ 핵심 기능 (Core Logic)
 
-```text
-matching-core/
-├── backend/                # NestJS 기반 매칭 엔진 코어
-│   ├── src/modules/matching/   # 매칭 전략 및 로직 핵심
-│   └── src/modules/entities/   # 유저 및 팀 데이터 관리
-├── frontend/               # Next.js 기반 대시보드 및 웹
-│   └── src/app/playground/     # 매칭 시뮬레이터
-└── work-plan/              # 마이그레이션 및 상태 관리 문서
-```
+### 1. 📍 Distance Strategy (거리 기반)
+"내 주변 5km 이내의 사람을 찾아줘"
+- **PostGIS** 기반의 정밀한 구면 좌표 연산
+- 단순 반경 검색이 아닌, 거리별 감쇠 함수(Decay Function)를 통한 **Score** 산출
+
+### 2. 🧠 Preference Strategy (성향 기반)
+"나와 관심사가(React, NestJS) 겹치는 사람을 찾아줘"
+- 카테고리 벡터 유사도 분석
+- 일치하는 관심사가 많을수록 높은 **Relevance Score** 부여
+
+### 3. ⚖️ Hybrid Strategy (복합 지능)
+"가까우면서도 성향이 맞는 사람이 최고야"
+- 거리 점수(70%) + 성향 점수(30%) 가중치 조합
+- 비즈니스 로직에 따라 가중치(Weights) 동적 조절 가능
 
 ---
 
-## 🚢 배포 (Deployment)
+## 🛠️ 제어 및 핸들링 (Control & Handling)
 
-본 프로젝트는 **Docker**와 **Cloudflare**를 환경에 최적화되어 설계되었습니다.
+이 프로젝트는 개발자가 엔진을 쉽게 이해하고 테스트할 수 있도록 **최적의 DX(Developer Experience)**를 제공합니다.
 
-### 1. Docker를 이용한 배포
-루트 디렉토리에 포함된 `docker-compose.yml`을 사용하여 전체 스택을 한 번에 구동할 수 있습니다.
+### 1. 인터랙티브 플레이그라운드 (Visual Simulator)
+- 복잡한 JSON 요청을 날려볼 필요 없이, **웹 UI**에서 버튼 클릭만으로 매칭 알고리즘을 테스트하세요.
+- 매칭 과정이 시각적으로 표현되어 **"왜 이 사람이 매칭되었는지"** 직관적으로 이해할 수 있습니다.
+- [Frontend Dashboard 바로가기](http://localhost:3000/playground)
+
+### 2. 살아있는 문서 (Live Documentation)
+- **Swagger UI**를 통해 API 명세를 확인하고 즉시 테스트할 수 있습니다.
+- [API Docs 바로가기](http://localhost:3001/api/docs)
+
+### 3. 인증 가이드 (Authentication)
+- 서비스 간 통신을 위한 **JWT/Supabase** 인증 시스템이 내장되어 있습니다.
+- [AUTHENTICATION.md](./backend/AUTHENTICATION.md) 문서를 통해 인증 구현 방법을 5분 만에 파악하세요.
+
+---
+
+## 🚀 빠른 시작 (Quick Start)
+
+엔진을 로컬에서 5분 만에 구동하세요.
+
+### 1. 데이터베이스 설정 (Supabase)
+이 엔진은 PostGIS가 활성화된 PostgreSQL이 필요합니다. (Supabase 권장)
+- `work-plan/sql/` 폴더 안의 SQL 스크립트를 순서대로 실행하세요.
+
+### 2. 엔진 가동 (via Docker)
+모든 환경이 Docker로 패키징되어 있습니다.
 
 ```bash
-# 환경 변수 설정 후 실행
-docker-compose up -d --build
+# 1. 환경 변수 템플릿 복사 & 설정
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env
+
+# 2. 엔진 시동
+docker-compose up -d
 ```
 
-### 2. Cloudflare 활용
-- **Frontend**: Cloudflare Pages를 통한 배포를 권장합니다. 하이드레이션 최적화와 글로벌 엣지 캐싱을 지원합니다.
-- **Backend**: Docker 컨테이너를 VPS에 올린 후 Cloudflare Tunnel을 통해 보안 연결을 설정하거나, Cloudflare Workers와 통합할 수 있습니다.
-- **Health Check**: 배포 후 `http://your-api/health`를 통해 시스템 상태를 모니터링하세요.
+- **Backend (Engine)**: `http://localhost:3001`
+- **Frontend (Dashboard)**: `http://localhost:3000`
+
+---
+
+## 🤝 당신이 구현해야 할 것
+
+이 엔진은 **'매칭'**을 담당합니다. 당신은 다음만 구현하면 됩니다:
+1. **사용자 확보**: 서비스를 사용할 유저들을 모으세요.
+2. **요청 전송**: 유저가 매칭을 원할 때 이 엔진으로 API(`POST /matching/request`)를 보내세요.
+3. **결과 표시**: 엔진이 돌려준 최적의 후보자 리스트를 예쁜 UI로 보여주세요.
 
 ---
 
 ## 📄 라이선스 (License)
-본 프로젝트는 MIT License를 따릅니다.
+MIT License - 마음껏 수정하고, 확장하고, 상용 서비스에 사용하세요.
