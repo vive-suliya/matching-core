@@ -36,8 +36,8 @@ export default function Header() {
                 </Link>
 
                 <div className="hidden md:flex items-center gap-8 text-[11px] font-black uppercase tracking-widest text-gray-400">
-                    <Link href={isHome ? "#features" : "/#features"} className="hover:text-white transition-colors">Advantages</Link>
-                    <Link href={isHome ? "#how-it-works" : "/#how-it-works"} className="hover:text-white transition-colors">Workflow</Link>
+                    <Link href="/advantages" className={`${pathname === '/advantages' ? 'text-white' : ''} hover:text-white transition-colors`}>Advantages</Link>
+                    <Link href="/workflow" className={`${pathname === '/workflow' ? 'text-white' : ''} hover:text-white transition-colors`}>Workflow</Link>
                     <Link href="/docs" className={`${pathname === '/docs' ? 'text-white' : ''} hover:text-white transition-colors`}>Docs</Link>
                     <Link href="/playground" className={`
                         px-6 py-2.5 rounded-full transition-all duration-500 font-black

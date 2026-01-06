@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { API_URL } from '@/lib/config';
+import Header from '@/components/layout/Header';
 
 interface ApiEndpoint {
     method: 'GET' | 'POST';
@@ -110,6 +111,7 @@ export default function DocsPage() {
 
     return (
         <div className="min-h-screen bg-[#02000d] text-white pt-32 pb-20 selection:bg-indigo-500/30 overflow-x-hidden">
+            <Header />
             {/* Background elements */}
             <div className="fixed inset-0 pointer-events-none">
                 <div className="absolute top-0 right-0 w-1/3 h-1/3 bg-indigo-600/5 blur-[120px] rounded-full"></div>

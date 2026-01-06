@@ -39,29 +39,54 @@ export class MatchingFiltersDto {
 }
 
 export class CreateMatchingRequestDto {
-    @ApiProperty({ example: '11111111-1111-1111-1111-111111111111' })
+    @ApiProperty({
+        description: '요청자 ID (인증 토큰에서 자동 주입되므로 생략 가능)',
+        example: '550e8400-e29b-41d4-a716-446655440000',
+        required: false
+    })
     @IsString()
-    requesterId: string;
+    @IsOptional()
+    requesterId?: string;
 
-    @ApiProperty({ enum: RequesterType })
+    @ApiProperty({
+        enum: RequesterType,
+        description: '요청자 타입 (개인/팀)',
+        example: 'user'
+    })
     @IsEnum(RequesterType)
     requesterType: RequesterType;
 
-    @ApiProperty({ enum: TargetType })
+    @ApiProperty({
+        enum: TargetType,
+        description: '매칭 대상 타입',
+        example: 'team'
+    })
     @IsEnum(TargetType)
     targetType: TargetType;
 
-    @ApiProperty({ enum: MatchingStrategy, default: MatchingStrategy.DISTANCE })
+    @ApiProperty({
+        enum: MatchingStrategy,
+        default: MatchingStrategy.HYBRID,
+        description: '매칭 전략 (거리 기반, 성향 기반, 하이브리드)',
+        example: 'hybrid'
+    })
     @IsEnum(MatchingStrategy)
     @IsOptional()
-    strategy?: MatchingStrategy = MatchingStrategy.DISTANCE;
+    strategy?: MatchingStrategy = MatchingStrategy.HYBRID;
 
-    @ApiProperty({ type: MatchingFiltersDto })
+    @ApiProperty({
+        type: MatchingFiltersDto,
+        description: '매칭 필터 조건'
+    })
     @ValidateNested()
     @Type(() => MatchingFiltersDto)
     filters: MatchingFiltersDto;
 
-    @ApiProperty({ type: StrategySettingsDto, required: false })
+    @ApiProperty({
+        type: StrategySettingsDto,
+        required: false,
+        description: '매칭 전략 세부 설정 (가중치 등)'
+    })
     @IsOptional()
     @ValidateNested()
     @Type(() => StrategySettingsDto)
