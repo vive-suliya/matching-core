@@ -2176,3 +2176,33 @@ Week 5-8 (2026-02-03 ~ 2026-03-02)
 1. **Service Integration 테스트 수정** (matching.service.spec.ts)
 2. **API 문서화 보강** (에러 응답, cURL 예제 추가)
 3. **Sprint 3 기능 구현** (실시간 알림 등)
+
+### ✅ 추가 작업 (homepage-renewal)
+- **홈페이지 리뉴얼**: Project Identity 재정립 (Universal Matching Kernel)
+- **UI 개선**: Dark Theme, Grid Background, Glassmorphism 적용
+- **UX 개선**: 한글 Typography (Word-break), Title Clipping 수정
+- **Hydration Error 수정**: Next.js Hydration Mismatch 해결
+- **상세 페이지 추가**:
+  - `/workflow`: 시스템 아키텍처 및 매칭 프로세스 시각화
+  - `/advantages`: 기술적 강점(PostGIS, Hybrid Scoring) 상세 소개
+- **콘텐츠 개선**: 메인 페이지 설명을 더 전문적이고 명료하게 수정
+
+### ✅ 5. 문서 및 UI 현행화 (Documentation & UI Sync)
+
+#### 5.1 홈페이지 및 브랜드 메시지 개선 (Completed)
+- **Vision Update**: "End-User App" → "Universal Matching Middleware"로 정체성 재정립
+- **Landing Page**: 
+  - Hero 섹션 텍스트 명확화 ("미들웨어", "엔진 위임" 강조)
+  - Feature 섹션 기술 용어(PostGIS, Hybrid Scoring) 도입
+- **새로운 페이지 추가**:
+  - `/workflow`: 시스템 아키텍처 다이어그램 및 시각화
+  - `/advantages`: 기술적 경쟁력 (Spatial Engine, Security) 상세 소개
+- **Navigation**: 상단 헤더 탭(`Workflow`, `Advantages`) 연결 및 활성화 상태 스타일 적용
+
+#### 5.2 문서 현행화 (Completed)
+- **README.md**:
+  - 프로젝트 정의를 프론트엔드 메시지와 일치시킴
+  - 핵심 기능 및 아키텍처 다이어그램 업데이트
+  - 신규 페이지(`/workflow`, `/advantages`)에 대한 참조 링크 추가
+
+---

@@ -12,28 +12,29 @@
 ## 💡 프로젝트의 본질 (The Philosophy)
 
 **Matching Core**는 그 자체로 완성된 End-User 서비스가 아닙니다.  
-**당신의 서비스가 '매칭' 기능을 필요로 할 때 가져다 쓰는 강력한 엔진(Core)**입니다.
+서비스 개발의 복잡성을 줄이고, 본질적인 가치에 집중할 수 있게 돕는 **매칭 미들웨어(Matching Middleware)**입니다.
 
-- ❌ "팀 프로젝트 구인 사이트를 만든다" 
-- ✅ "**팀 프로젝트 구인 사이트**에 필요한 **매칭 기능**을 API 호출 하나로 해결한다"
+- ❌ "팀 프로젝트 구인 사이트를 바닥부터 만든다" 
+- ✅ "**팀 프로젝트 구인 사이트**에 필요한 **매칭 로직**을 엔진에 위임(Delegate)한다"
 
 ### 🎯 목표 (Goal)
-- **추상화 (Abstraction)**: 사용자-팀, 멘토-멘티, 게이머-게이머 등 모든 관계를 `Requester(요청자)`와 `Candidate(후보자)`의 관계로 단순화합니다.
-- **순수성 (Purity)**: 회원가입, 채팅 등 부가 기능은 배제하고, 오직 **'최적의 연결(Connection)'**이라는 본질에만 집중합니다.
-- **제어 용이성 (Controllability)**: 복잡한 로직을 블랙박스 안에 숨기고, 개발자는 단순한 API와 직관적인 대시보드로 엔진을 핸들링합니다.
+- **추상화 (Abstraction)**: `Requester`와 `Candidate`라는 보편적 개념으로 모든 매칭 관계(팀 빌딩, 데이팅, 게임 등)를 정의합니다.
+- **순수성 (Purity)**: 회원가입, 채팅 등 부가 기능은 배제하고, 오직 **'최적의 연결(Connection)'** 계산에만 집중합니다.
+- **제어 용이성 (Logic-less Integration)**: 복잡한 알고리즘은 엔진 내부로 숨기고(캡슐화), 외부에서는 API 파라미터 튜닝만으로 로직을 제어합니다.
 
 ---
 
 ## 🏗️ 아키텍처 (Usage Architecture)
 
-이 프로젝트는 귀하의 서비스(Application)의 **백엔드 모듈** 또는 **마이크로서비스**로 작동합니다.
+이 프로젝트는 귀하의 서비스(Application)의 **백엔드 모듈** 또는 **독립형 마이크로서비스**로 작동합니다.
+상세한 작동 원리는 [Workflow 페이지](http://localhost:3000/workflow)에서 확인할 수 있습니다.
 
 ```mermaid
 graph LR
     User[End User] --> YourApp[Your Service (App/Web)]
     YourApp -- 1. 매칭 요청 (REST API) --> MatchingCore[🧩 Matching Core Engine]
-    MatchingCore -- 2. 후보자 검색 (PostGIS) --> DB[(Shared / Dedicated DB)]
-    MatchingCore -- 3. 알고리즘 계산 (Scoring) --> MatchingCore
+    MatchingCore -- 2. 공간 필터링 (Spatial Filter) --> DB[(PostGIS DB)]
+    MatchingCore -- 3. 하이브리드 가중치 계산 (Scoring) --> MatchingCore
     MatchingCore -- 4. 결과 반환 (JSON) --> YourApp
     YourApp --> User
 ```
@@ -42,20 +43,18 @@ graph LR
 
 ## ✨ 핵심 기능 (Core Logic)
 
-### 1. 📍 Distance Strategy (거리 기반)
-"내 주변 5km 이내의 사람을 찾아줘"
-- **PostGIS** 기반의 정밀한 구면 좌표 연산
-- 단순 반경 검색이 아닌, 거리별 감쇠 함수(Decay Function)를 통한 **Score** 산출
+상세한 기술적 강점은 [Advantages 페이지](http://localhost:3000/advantages)에서 확인할 수 있습니다.
 
-### 2. 🧠 Preference Strategy (성향 기반)
-"나와 관심사가(React, NestJS) 겹치는 사람을 찾아줘"
-- 카테고리 벡터 유사도 분석
-- 일치하는 관심사가 많을수록 높은 **Relevance Score** 부여
+### 1. 📍 Spatial Intelligence (공간 지능)
+"단순 거리가 아닌, 이동 편의성을 고려한 매칭"
+- **PostGIS** 기반의 고성능 공간 연산
+- `ST_DWithin`, `ST_Distance` 등을 활용한 정교한 반경(Radius) 검색 및 필터링
 
-### 3. ⚖️ Hybrid Strategy (복합 지능)
-"가까우면서도 성향이 맞는 사람이 최고야"
-- 거리 점수(70%) + 성향 점수(30%) 가중치 조합
-- 비즈니스 로직에 따라 가중치(Weights) 동적 조절 가능
+### 2. ⚖️ Hybrid Scoring (하이브리드 스코어링)
+"물리적 거리와 취향의 완벽한 밸런스"
+- **거리 점수(Distance Score)**: 가까울수록 높은 점수 (Non-linear decay)
+- **성향 점수(Affinity Score)**: 관심사(Categories) 벡터 유사도 분석
+- 가중 합산(Weighted Sum): `(거리 × Wd) + (성향 × Wp)` 공식을 통한 최종 랭킹 산출
 
 ---
 
