@@ -27,7 +27,7 @@
 ## 🏗️ 아키텍처 (Usage Architecture)
 
 이 프로젝트는 귀하의 서비스(Application)의 **백엔드 모듈** 또는 **독립형 마이크로서비스**로 작동합니다.
-상세한 작동 원리는 [Workflow 페이지](https://7598bec4.matching-core.pages.dev/workflow)에서 확인할 수 있습니다.
+상세한 작동 원리는 [Workflow 페이지](https://matching-core.pages.dev/workflow)에서 확인할 수 있습니다.
 
 ```mermaid
 graph LR
@@ -43,7 +43,7 @@ graph LR
 
 ## ✨ 핵심 기능 (Core Logic)
 
-상세한 기술적 강점은 [Advantages 페이지](https://7598bec4.matching-core.pages.dev//advantages)에서 확인할 수 있습니다.
+상세한 기술적 강점은 [Advantages 페이지](https://matching-core.pages.dev/advantages)에서 확인할 수 있습니다.
 
 ### 1. 📍 Spatial Intelligence (공간 지능)
 "단순 거리가 아닌, 이동 편의성을 고려한 매칭"
@@ -65,7 +65,7 @@ graph LR
 ### 1. 인터랙티브 플레이그라운드 (Visual Simulator)
 - 복잡한 JSON 요청을 날려볼 필요 없이, **웹 UI**에서 버튼 클릭만으로 매칭 알고리즘을 테스트하세요.
 - 매칭 과정이 시각적으로 표현되어 **"왜 이 사람이 매칭되었는지"** 직관적으로 이해할 수 있습니다.
-- [Frontend Dashboard 바로가기](https://7598bec4.matching-core.pages.dev/playground)
+- [Frontend Dashboard 바로가기](https://matching-core.pages.dev/playground)
 
 ### 2. 살아있는 문서 (Live Documentation)
 - **Swagger UI**를 통해 API 명세를 확인하고 즉시 테스트할 수 있습니다.
