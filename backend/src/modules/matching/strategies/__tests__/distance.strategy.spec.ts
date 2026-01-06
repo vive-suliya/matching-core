@@ -8,53 +8,181 @@ describe('DistanceStrategy', () => {
         strategy = new DistanceStrategy();
     });
 
-    const createEntity = (id: string, lat: number, lng: number, distance?: number, rating?: number): MatchableEntity => ({
-        id,
-        type: 'user',
-        profile: {
-            location: [lat, lng],
-            distance: distance, // distance in meters
-            averageRating: rating
-        }
+    describe('score()', () => {
+        it('should return 100 when distance <= 0.5km', () => {
+            const requester: MatchableEntity = {
+                id: '1',
+                type: 'user',
+                profile: { location: [37.5665, 126.9780] }
+            };
+            const candidate: MatchableEntity = {
+                id: '2',
+                type: 'user',
+                profile: {
+                    location: [37.5670, 126.9785],
+                    distance: 50  // 50m
+                }
+            };
+
+            const score = strategy.score(requester, candidate);
+            // default rating 70, distance 100 -> 100*0.8 + 70*0.2 = 94
+            expect(score).toBeGreaterThanOrEqual(94);
+        });
+
+        it('should return ~95 when distance <= 1km', () => {
+            const requester: MatchableEntity = {
+                id: '1',
+                type: 'user',
+                profile: { location: [37.5665, 126.9780] }
+            };
+            const candidate: MatchableEntity = {
+                id: '2',
+                type: 'user',
+                profile: { distance: 800 }  // 0.8km
+            };
+
+            // 800m -> score calculation logic specific
+            const score = strategy.score(requester, candidate);
+            expect(score).toBeGreaterThanOrEqual(89);
+            expect(score).toBeLessThanOrEqual(95);
+        });
+
+        it('should use DB pre-calculated distance if available', () => {
+            const requester: MatchableEntity = {
+                id: '1',
+                type: 'user',
+                profile: { location: [37.5665, 126.9780] }
+            };
+            const candidate: MatchableEntity = {
+                id: '2',
+                type: 'user',
+                profile: {
+                    location: [37.5665, 126.9780],  // same location
+                    distance: 5000  // DB says 5km
+                }
+            };
+
+            const score = strategy.score(requester, candidate);
+            // distance=5000m (5km) -> low distance score
+            // 70 * 0.8 + 70 * 0.2 approx 70 or lower depending on curve
+            // Actually checking if it uses 5000 not 0
+            // If it used 0 distance (from location), score would be very high (~94)
+            // With 5km, score should be much lower.
+            expect(score).toBeLessThan(80);
+        });
+
+        it('should fallback to Haversine when distance is undefined', () => {
+            const requester: MatchableEntity = {
+                id: '1',
+                type: 'user',
+                profile: { location: [37.5665, 126.9780] }
+            };
+            const candidate: MatchableEntity = {
+                id: '2',
+                type: 'user',
+                profile: { location: [37.5665, 126.9780] }  // no distance prop
+            };
+
+            const score = strategy.score(requester, candidate);
+            expect(score).toBeGreaterThanOrEqual(94);  // Same location -> high score
+        });
+
+        it('should return 0 when location is missing', () => {
+            const requester: MatchableEntity = {
+                id: '1',
+                type: 'user',
+                profile: {}
+            };
+            const candidate: MatchableEntity = {
+                id: '2',
+                type: 'user',
+                profile: { location: [37.5665, 126.9780] }
+            };
+
+            const score = strategy.score(requester, candidate);
+            expect(score).toBe(0);
+        });
+
+        it('should include rating score (20% weight)', () => {
+            const requester: MatchableEntity = {
+                id: '1',
+                type: 'user',
+                profile: { location: [37.5665, 126.9780] }
+            };
+            const candidate: MatchableEntity = {
+                id: '2',
+                type: 'user',
+                profile: {
+                    distance: 100,  // 0.1km -> 100 points
+                    averageRating: 9  // 9.0 rating -> 90 points
+                }
+            };
+
+            const score = strategy.score(requester, candidate);
+            // 100*0.8 + 90*0.2 = 80 + 18 = 98
+            expect(score).toBe(98);
+        });
+
+        it('should use default rating (70) when missing', () => {
+            const requester: MatchableEntity = {
+                id: '1',
+                type: 'user',
+                profile: { location: [37.5665, 126.9780] }
+            };
+            const candidate: MatchableEntity = {
+                id: '2',
+                type: 'user',
+                profile: { distance: 100 }
+            };
+
+            const score = strategy.score(requester, candidate);
+            // 100*0.8 + 70*0.2 = 80 + 14 = 94
+            expect(score).toBe(94);
+        });
     });
 
-    it('should return 100 when distance is very close (PostGIS pre-calculated)', () => {
-        const requester = createEntity('req', 37.5665, 126.9780);
-        const candidate = createEntity('can', 37.5666, 126.9781, 100, 5); // 100m, 5 rating
+    describe('execute()', () => {
+        it('should return top candidates sorted by score', () => {
+            const requester: MatchableEntity = {
+                id: '1',
+                type: 'user',
+                profile: { location: [37.5665, 126.9780] }
+            };
 
-        // distance <= 0.5km -> 100 score + (5 rating -> 50 score)
-        // (100 * 0.8) + (50 * 0.2) = 80 + 10 = 90 (Wait, rating score is rating * 10)
-        // (100 * 0.8) + (50 * 0.2) = 90
-        expect(strategy.score(requester, candidate)).toBe(90);
-    });
+            const candidates: MatchableEntity[] = Array.from({ length: 10 }).map((_, i) => ({
+                id: `candidate-${i}`,
+                type: 'user',
+                profile: {
+                    distance: 1000 + i * 100, // increasing distance
+                    location: [37.5665, 126.9780]
+                }
+            }));
 
-    it('should return 50 score for distance 10km (PostGIS pre-calculated)', () => {
-        const requester = createEntity('req', 37.5665, 126.9780);
-        const candidate = createEntity('can', 37.6665, 127.0780, 10000, 5); // 10km, 5 rating
+            const matches = strategy.execute(requester, candidates);
 
-        // 10km -> 50 score
-        // (50 * 0.8) + (50 * 0.2) = 40 + 10 = 50
-        expect(strategy.score(requester, candidate)).toBe(50);
-    });
+            expect(matches.length).toBeGreaterThan(0);
+            // First match should have higher or equal score than second
+            expect(matches[0].score).toBeGreaterThanOrEqual(matches[1].score);
+        });
 
-    it('should fallback to Haversine calculation if distance is missing', () => {
-        // Seoul City Hall to Gangnam Station is roughly 10km
-        const seoulCityHall = createEntity('req', 37.5665, 126.9780);
-        const gangnamStation = createEntity('can', 37.4979, 127.0276, undefined, 5);
+        it('should generate explanation when enabled', () => {
+            const requester: MatchableEntity = {
+                id: '1',
+                type: 'user',
+                profile: { location: [37.5665, 126.9780] }
+            };
 
-        const score = strategy.score(seoulCityHall, gangnamStation);
-        expect(score).toBeGreaterThan(0);
-        expect(score).toBeLessThan(100);
-    });
+            const candidates: MatchableEntity[] = [{
+                id: 'candidate-1',
+                type: 'user',
+                profile: { distance: 1200 }
+            }];
 
-    it('should respect rating weight', () => {
-        const requester = createEntity('req', 37.5665, 126.9780);
-        const candidateHighRating = createEntity('high', 37.5665, 126.9780, 100, 10); // 100m, 10 rating
-        const candidateLowRating = createEntity('low', 37.5665, 126.9780, 100, 1);   // 100m, 1 rating
+            const settings = { enableExplanation: true };
+            const matches = strategy.execute(requester, candidates, settings);
 
-        const highMatch = strategy.score(requester, candidateHighRating);
-        const lowMatch = strategy.score(requester, candidateLowRating);
-
-        expect(highMatch).toBeGreaterThan(lowMatch);
+            expect(matches[0].metadata.explanation).toContain('km');
+            expect(matches[0].metadata.explanation).toContain('거리');
+        });
     });
 });

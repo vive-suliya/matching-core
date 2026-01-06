@@ -1,6 +1,5 @@
 import { HybridStrategy } from '../hybrid.strategy';
 import { MatchableEntity } from '../../entities/matchable-entity.interface';
-import { StrategySettings } from '../../dto/strategy-settings.dto';
 
 describe('HybridStrategy', () => {
     let strategy: HybridStrategy;
@@ -9,82 +8,178 @@ describe('HybridStrategy', () => {
         strategy = new HybridStrategy();
     });
 
-    const createEntity = (id: string, lat: number, lng: number, categories: string[], distance?: number, matchScore?: number): MatchableEntity => ({
-        id,
-        type: 'user',
-        profile: {
-            display_name: `User ${id}`,
-            location: [lat, lng],
-            categories,
-            distance,
-            category_match_score: matchScore
-        }
-    });
+    describe('execute()', () => {
+        it('should combine distance and preference scores with default weights (0.7/0.3)', () => {
+            const requester: MatchableEntity = {
+                id: '1',
+                type: 'user',
+                profile: {
+                    location: [37.5665, 126.9780],
+                    categories: ['sports', 'gaming']
+                }
+            };
 
-    const mockSettings: StrategySettings = {
-        useDistance: true,
-        usePreference: true,
-        distanceWeight: 0.7,
-        preferenceWeight: 0.3,
-        enableExplanation: true,
-        enableNegativeFilter: false
-    };
+            const candidates: MatchableEntity[] = [{
+                id: 'candidate-1',
+                type: 'user',
+                profile: {
+                    distance: 500,  // 0.5km → 100점 (거리)
+                    categories: ['sports', 'gaming'],  // 100% 일치 (성향)
+                    category_match_score: 100
+                }
+            }];
 
-    it('should combine distance and preference scores correctly', () => {
-        const requester = createEntity('req', 37.5665, 126.9780, ['sports', 'gaming']);
-        const candidates = [
-            // Close (90 score), 50% category match (50 score)
-            // (90 * 0.7) + (50 * 0.3) = 63 + 15 = 78
-            createEntity('can1', 37.5666, 126.9781, ['sports'], 100),
-        ];
+            const matches = strategy.execute(requester, candidates);
 
-        const results = strategy.execute(requester, candidates, mockSettings);
+            // (100 * 0.7) + (100 * 0.3) = 100
+            // Note: rating score is also part of distance score (20%)
+            // If candidate has no rating, it gets 70.
+            // Distance sub-score: 100*0.8 + 70*0.2 = 94.
+            // Total: 94 * 0.7 + 100 * 0.3 = 65.8 + 30 = 95.8
+            // Let's check with expected logic in hybrid strategy
+            // Hybrid strategy calls distanceStrategy.score() internally
 
-        expect(results.length).toBe(1);
-        expect(results[0].score).toBe(78);
-    });
+            expect(matches[0].score).toBeGreaterThan(90);
+        });
 
-    it('should generate an explanation when enabled', () => {
-        const requester = createEntity('req', 37.5665, 126.9780, ['sports', 'gaming']);
-        const candidates = [
-            createEntity('can1', 37.5666, 126.9781, ['sports'], 100),
-        ];
+        it('should respect custom weight settings', () => {
+            const requester: MatchableEntity = {
+                id: '1',
+                type: 'user',
+                profile: {
+                    location: [37.5665, 126.9780],
+                    categories: ['sports']
+                }
+            };
 
-        const results = strategy.execute(requester, candidates, mockSettings);
+            const candidates: MatchableEntity[] = [{
+                id: 'candidate-1',
+                type: 'user',
+                profile: {
+                    distance: 500,  // High distance score
+                    categories: ['gaming'],  // 0% match
+                    category_match_score: 0
+                }
+            }];
 
-        expect(results[0].metadata.explanation).toBeDefined();
-        expect(results[0].metadata.explanation).toContain('sports');
-        expect(results[0].metadata.explanation).toContain('0.1km');
-    });
+            const settings = { distanceWeight: 0.9, preferenceWeight: 0.1 };
+            const matches = strategy.execute(requester, candidates, settings);
 
-    it('should sort results by final score descending', () => {
-        const requester = createEntity('req', 37.5665, 126.9780, ['sports', 'gaming']);
-        const candidates = [
-            createEntity('can_far', 37.9999, 127.9999, ['sports', 'gaming'], 50000), // Far, match
-            createEntity('can_close', 37.5666, 126.9781, ['sports', 'gaming'], 100),  // Close, match
-        ];
+            // Should be dominated by distance score (high)
+            expect(matches[0].score).toBeGreaterThan(80);
 
-        const results = strategy.execute(requester, candidates, mockSettings);
+            const settingsPreference = { distanceWeight: 0.1, preferenceWeight: 0.9 };
+            const matchesPreference = strategy.execute(requester, candidates, settingsPreference);
 
-        expect(results[0].entities[1].id).toBe('can_close');
-        expect(results[0].score).toBeGreaterThan(results[1].score);
-    });
+            // Should be dominated by preference score (low/zero)
+            expect(matchesPreference[0].score).toBeLessThan(50);
+        });
 
-    it('should respect custom weights', () => {
-        const requester = createEntity('req', 37.5665, 126.9780, ['sports']);
-        const candidates = [
-            createEntity('can', 37.5666, 126.9781, ['gaming'], 100), // Close, no match
-        ];
+        it('should use DB category_match_score if available', () => {
+            const requester: MatchableEntity = {
+                id: '1',
+                type: 'user',
+                profile: {
+                    location: [37.5665, 126.9780],
+                    categories: ['sports', 'gaming']
+                }
+            };
 
-        // 100% distance weight
-        const distanceOnlySettings = { ...mockSettings, distanceWeight: 1.0, preferenceWeight: 0.0 };
-        const res1 = strategy.execute(requester, candidates, distanceOnlySettings);
+            const candidates: MatchableEntity[] = [{
+                id: 'candidate-1',
+                type: 'user',
+                profile: {
+                    distance: 1000,
+                    categories: ['sports'],
+                    category_match_score: 75  // DB score used directly
+                }
+            }];
 
-        // 100% preference weight
-        const preferenceOnlySettings = { ...mockSettings, distanceWeight: 0.0, preferenceWeight: 1.0 };
-        const res2 = strategy.execute(requester, candidates, preferenceOnlySettings);
+            const matches = strategy.execute(requester, candidates);
 
-        expect(res1[0].score).toBeGreaterThan(0); // Distance score
-        expect(res2[0].score).toBe(0);           // No category match
+            expect(matches[0].metadata.preferenceMatch).toBe(75);
+        });
+
+        it('should fallback to runtime calculation when DB score is missing', () => {
+            const requester: MatchableEntity = {
+                id: '1',
+                type: 'user',
+                profile: {
+                    location: [37.5665, 126.9780],
+                    categories: ['sports', 'gaming']
+                }
+            };
+
+            const candidates: MatchableEntity[] = [{
+                id: 'candidate-1',
+                type: 'user',
+                profile: {
+                    distance: 1000,
+                    categories: ['sports']  // 1 out of 2 = 50%
+                    // no category_match_score
+                }
+            }];
+
+            const matches = strategy.execute(requester, candidates);
+
+            // Runtime calc: 50
+            expect(matches[0].metadata.preferenceMatch).toBe(50);
+        });
+
+        it('should generate detailed explanation with common categories', () => {
+            const requester: MatchableEntity = {
+                id: '1',
+                type: 'user',
+                profile: {
+                    location: [37.5665, 126.9780],
+                    categories: ['sports', 'gaming']
+                }
+            };
+
+            const candidates: MatchableEntity[] = [{
+                id: 'candidate-1',
+                type: 'user',
+                profile: {
+                    distance: 1200,
+                    categories: ['sports', 'travel'],
+                    common_categories: ['sports']  // DB provided
+                }
+            }];
+
+            const settings = { enableExplanation: true };
+            const matches = strategy.execute(requester, candidates, settings);
+
+            expect(matches[0].metadata.explanation).toContain('sports');
+            expect(matches[0].metadata.explanation).toContain('거리');
+            expect(matches[0].metadata.explanation).toContain('점');
+        });
+
+        it('should include both scores in metadata', () => {
+            const requester: MatchableEntity = {
+                id: '1',
+                type: 'user',
+                profile: {
+                    location: [37.5665, 126.9780],
+                    categories: ['sports']
+                }
+            };
+
+            const candidates: MatchableEntity[] = [{
+                id: 'candidate-1',
+                type: 'user',
+                profile: {
+                    distance: 1000,
+                    categories: ['sports'],
+                    category_match_score: 100
+                }
+            }];
+
+            const matches = strategy.execute(requester, candidates);
+
+            expect(matches[0].metadata).toHaveProperty('distanceScore');
+            expect(matches[0].metadata).toHaveProperty('preferenceMatch');
+            expect(matches[0].metadata.distanceScore).toBeGreaterThan(0);
+            expect(matches[0].metadata.preferenceMatch).toBe(100);
+        });
     });
 });

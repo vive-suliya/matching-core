@@ -7,6 +7,7 @@ import MatchTypeSelector from '@/components/playground/MatchTypeSelector';
 import ProfileInput from '@/components/playground/ProfileInput';
 import StrategySelector from '@/components/playground/StrategySelector';
 import ResultsDisplay from '@/components/playground/ResultsDisplay';
+import Header from '@/components/layout/Header';
 
 export default function PlaygroundPage() {
     const [currentStep, setCurrentStep] = useState(1);
@@ -22,6 +23,7 @@ export default function PlaygroundPage() {
 
     return (
         <div className="min-h-screen bg-[#02000d] text-white pt-32 pb-20 selection:bg-purple-500/30 overflow-x-hidden">
+            <Header />
 
             {/* Ambient Background */}
             <div className="fixed inset-0 pointer-events-none z-0">
