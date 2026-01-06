@@ -1,6 +1,7 @@
 
 import { Controller, Post, Body, Get, Param } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { MatchingService } from './matching.service';
 import { CreateMatchingRequestDto } from './dto/create-matching-request.dto';
 import { MatchingResultsResponseDto, SystemStatsResponseDto } from './dto/matching-response.dto';
@@ -10,6 +11,7 @@ import { MatchingResultsResponseDto, SystemStatsResponseDto } from './dto/matchi
 export class MatchingController {
     constructor(private readonly matchingService: MatchingService) { }
 
+    @Throttle({ default: { limit: 5, ttl: 60000 } })  // 60초에 5개 요청만 허용
     @Post('request')
     @ApiOperation({ summary: 'Create a matching request', description: 'Submit a new request to find a match.' })
     @ApiResponse({ status: 201, description: 'Request created successfully' })
