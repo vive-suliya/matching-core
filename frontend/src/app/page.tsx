@@ -50,9 +50,9 @@ export default function Home() {
         </h1>
 
         <p className="text-lg md:text-xl text-gray-400 max-w-2xl mb-12 leading-relaxed relative z-10 break-keep">
-          <span className="text-white font-semibold">"서비스를 위한 서비스"</span><br />
-          팀 빌딩부터 데이팅 앱까지, 모든 연결을 위한 코어 엔진.<br />
-          매칭의 바퀴를 다시 발명하지 마세요. 가져다 쓰세요.
+          <span className="text-white font-semibold">"서비스 개발을 위한 매칭 미들웨어"</span><br />
+          팀 빌딩, 데이팅, 게임 매칭까지. 복잡한 연결 로직을 엔진에 위임하고<br />
+          당신은 비즈니스의 본질적인 가치 창출에만 집중하세요.
         </p>
 
         <div className="flex flex-col sm:flex-row gap-4 w-full max-w-md justify-center relative z-10">
@@ -143,8 +143,8 @@ export default function Home() {
               <Network className="w-10 h-10 mb-6 text-blue-400" />
               <h3 className="text-xl font-bold mb-2 text-white">Spatial Intelligence</h3>
               <p className="text-sm text-gray-400 leading-relaxed mb-8 break-keep">
-                PostGIS 기반의 초정밀 반경 검색.<br />
-                단순 거리 계산을 넘어, 이동 편의성까지 고려한 지리 공간 분석을 수행합니다.
+                PostGIS 기반의 고성능 공간 연산.<br />
+                단순 직선 거리가 아닌, 실제 이동 편의성과 군집도(Clustering)를 고려한 정교한 지리 공간 분석을 수행합니다.
               </p>
             </div>
 
@@ -154,8 +154,8 @@ export default function Home() {
               <Zap className="w-10 h-10 mb-6 text-pink-400" />
               <h3 className="text-xl font-bold mb-2 text-white">Hybrid Scoring</h3>
               <p className="text-sm text-gray-400 leading-relaxed break-keep">
-                거리(70%) + 성향(30%) = 완벽한 매칭.<br />
-                단일 기준으로 설명할 수 없는 복잡한 인간 관계를 수치화하여 랭킹을 매깁니다.
+                거리와 성향을 가중 평균하여 단일 점수로 산출합니다.<br />
+                비즈니스 전략에 따라 가중치(Weights)를 실시간으로 튜닝하여 매칭 품질을 서비스 목적에 맞게 최적화하세요.
               </p>
             </div>
 
@@ -165,8 +165,8 @@ export default function Home() {
               <Layers className="w-10 h-10 mb-6 text-green-400" />
               <h3 className="text-xl font-bold mb-2 text-white">Full Control</h3>
               <p className="text-sm text-gray-400 leading-relaxed break-keep">
-                블랙박스는 없습니다.<br />
-                가중치, 필터, 검색 반경 등 모든 매칭 파라미터를 API로 직접 제어하세요.
+                알고리즘을 투명하게 제어하세요.<br />
+                검색 반경, 필터 조건, 가중치 비율 등 모든 매칭 파라미터를 API를 통해 직접 커스터마이징할 수 있습니다.
               </p>
             </div>
 
