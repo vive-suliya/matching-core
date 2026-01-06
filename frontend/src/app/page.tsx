@@ -43,12 +43,12 @@ export default function Home() {
           <span className="text-xs font-mono text-gray-400 tracking-wider">v2.1 STABLE RELEASE</span>
         </div>
 
-        <h1 className="text-5xl md:text-8xl font-black tracking-tight mb-8 leading-[0.9] text-transparent bg-clip-text bg-gradient-to-b from-white to-white/50 relative z-10">
+        <h1 className="text-5xl md:text-8xl font-black tracking-tight mb-8 leading-tight text-transparent bg-clip-text bg-gradient-to-b from-white to-white/50 relative z-10 pb-2">
           Universal<br />
           Matching Kernel
         </h1>
 
-        <p className="text-lg md:text-xl text-gray-400 max-w-2xl mb-12 leading-relaxed relative z-10">
+        <p className="text-lg md:text-xl text-gray-400 max-w-2xl mb-12 leading-relaxed relative z-10 break-keep">
           <span className="text-white font-semibold">"서비스를 위한 서비스"</span><br />
           팀 빌딩부터 데이팅 앱까지, 모든 연결을 위한 코어 엔진.<br />
           매칭의 바퀴를 다시 발명하지 마세요. 가져다 쓰세요.
@@ -130,7 +130,7 @@ export default function Home() {
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-24">
             <h2 className="text-3xl md:text-5xl font-black tracking-tight mb-6">Built for Logic, Designed for Scale.</h2>
-            <p className="text-gray-400 max-w-xl mx-auto">
+            <p className="text-gray-400 max-w-xl mx-auto break-keep">
               단순한 리스트 정렬이 아닙니다. 비즈니스 로직에 최적화된 하이브리드 스코어링 시스템을 제공합니다.
             </p>
           </div>
@@ -141,7 +141,7 @@ export default function Home() {
               <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
               <Network className="w-10 h-10 mb-6 text-blue-400" />
               <h3 className="text-xl font-bold mb-2 text-white">Spatial Intelligence</h3>
-              <p className="text-sm text-gray-400 leading-relaxed mb-8">
+              <p className="text-sm text-gray-400 leading-relaxed mb-8 break-keep">
                 PostGIS 기반의 초정밀 반경 검색.<br />
                 단순 거리 계산을 넘어, 이동 편의성까지 고려한 지리 공간 분석을 수행합니다.
               </p>
@@ -152,7 +152,7 @@ export default function Home() {
               <div className="absolute inset-0 bg-gradient-to-br from-pink-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
               <Zap className="w-10 h-10 mb-6 text-pink-400" />
               <h3 className="text-xl font-bold mb-2 text-white">Hybrid Scoring</h3>
-              <p className="text-sm text-gray-400 leading-relaxed">
+              <p className="text-sm text-gray-400 leading-relaxed break-keep">
                 거리(70%) + 성향(30%) = 완벽한 매칭.<br />
                 단일 기준으로 설명할 수 없는 복잡한 인간 관계를 수치화하여 랭킹을 매깁니다.
               </p>
@@ -163,7 +163,7 @@ export default function Home() {
               <div className="absolute inset-0 bg-gradient-to-br from-green-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
               <Layers className="w-10 h-10 mb-6 text-green-400" />
               <h3 className="text-xl font-bold mb-2 text-white">Full Control</h3>
-              <p className="text-sm text-gray-400 leading-relaxed">
+              <p className="text-sm text-gray-400 leading-relaxed break-keep">
                 블랙박스는 없습니다.<br />
                 가중치, 필터, 검색 반경 등 모든 매칭 파라미터를 API로 직접 제어하세요.
               </p>
@@ -181,7 +181,7 @@ export default function Home() {
                     DX FIRST
                   </div>
                   <h3 className="text-3xl font-bold">Just Plug & Play</h3>
-                  <p className="text-gray-400 leading-relaxed">
+                  <p className="text-gray-400 leading-relaxed break-keep">
                     복잡한 SQL 쿼리와 알고리즘은 잊으세요.<br />
                     단 하나의 REST API 엔드포인트로 당신의 서비스에 매칭 기능을 탑재할 수 있습니다.
                   </p>
