@@ -4,6 +4,7 @@
 import Link from 'next/link';
 import { useEffect, useRef } from 'react';
 import { Layers, Zap, Network, Code2, ArrowRight, Database, Cpu } from 'lucide-react';
+import Header from '@/components/layout/Header';
 
 export default function Home() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -26,7 +27,7 @@ export default function Home() {
 
   return (
     <div className="bg-[#030305] text-white selection:bg-indigo-500/30 overflow-x-hidden min-h-screen font-sans">
-
+      <Header />
       {/* Background Grid - Engineering Feel */}
       <div className="fixed inset-0 z-0 pointer-events-none opacity-20"
         style={{ backgroundImage: 'linear-gradient(#333 1px, transparent 1px), linear-gradient(90deg, #333 1px, transparent 1px)', backgroundSize: '40px 40px' }}>
