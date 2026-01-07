@@ -11,6 +11,7 @@ import { BaseMatchingStrategy } from './strategies/base.strategy';
 import { MatchableEntity, Match } from './entities/matchable-entity.interface';
 import { StrategySettings, StrategySettingsSchema } from './dto/strategy-settings.dto';
 import { z } from 'zod';
+import { MetricsService } from '../monitoring/metrics.service';
 
 @Injectable()
 export class MatchingService {
@@ -20,6 +21,7 @@ export class MatchingService {
 
     constructor(
         private readonly supabase: SupabaseService,
+        private readonly metricsService: MetricsService,
         @Optional() @Inject(CACHE_MANAGER) private cacheManager: Cache,
     ) {
         this.strategies = new Map([
@@ -30,13 +32,13 @@ export class MatchingService {
     }
 
     /**
-     * Helper to get Supabase Client safely
-     * Returns a mock client if Supabase is not configured (for dev/test resilience).
+     * Supabase 클라이언트를 안전하게 가져오는 헬퍼 메서드
+     * Supabase가 설정되지 않은 경우 모의(Mock) 클라이언트를 반환합니다 (개발/테스트 복원력).
      */
     private get client() {
         const client = this.supabase.getClient();
         if (!client) {
-            // Return a minimal mock for resilience
+            // 복원력을 위한 최소한의 모의 클라이언트 반환
             return {
                 from: () => ({
                     insert: () => ({ select: () => ({ single: () => Promise.resolve({ data: null, error: { message: 'Supabase not configured' } }) }) }),
@@ -50,24 +52,24 @@ export class MatchingService {
 
     /**
      * ==================================================================================
-     * [SECTION] Request Lifecycle Management
+     * [SECTION] 요청 라이프사이클 관리
      * ==================================================================================
      */
 
     /**
-     * Create Matching Request
+     * 매칭 요청 생성
      * 
-     * The entry point for the matching process.
-     * 1. Validates and saves the request to the Database.
-     * 2. Triggers the asynchronous matching process (Fire & Forget).
+     * 매칭 프로세스의 진입점입니다.
+     * 1. 요청을 유효성 검사하고 데이터베이스에 저장합니다.
+     * 2. 비동기 매칭 프로세스를 트리거합니다 (Fire & Forget).
      * 
-     * @param dto - Request details (strategy, filters, etc.)
-     * @returns {Object} The created request object
+     * @param dto - 요청 상세 정보 (전략, 필터 등)
+     * @returns {Object} 생성된 요청 객체
      */
     async createMatchingRequest(dto: CreateMatchingRequestDto) {
         console.log(`[MatchingService] Creating request for ${dto.requesterId} (${dto.requesterType})`);
 
-        // 1. Save Request to DB
+        // 1. 요청을 DB에 저장
         const { data: request, error } = await this.client
             .from('matching_requests')
             .insert({
@@ -83,7 +85,7 @@ export class MatchingService {
             .single();
 
         if (error || !request) {
-            // Fallback for demo/dev without DB schema: return mock
+            // DB 스키마가 없는 데모/개발용 폴백: 모의 데이터 반환
             console.error('[MatchingService] DB Error or Missing Config, returning mock:', error?.message || 'No request data returned');
             const mockRequest = {
                 id: 'mock-req-' + Math.random().toString(36).substr(2, 9),
@@ -93,33 +95,36 @@ export class MatchingService {
                 status: 'active',
                 settings: dto.settings || { useDistance: true, usePreference: true, distanceWeight: 0.7, preferenceWeight: 0.3 }
             };
-            // Trigger processMatching even with mock
+            // 모의 데이터인 경우에도 processMatching 트리거
             this.processMatching(mockRequest.id, mockRequest).catch(err => console.error(err));
             return mockRequest;
         }
 
         console.log(`[MatchingService] Request saved to DB: ${request.id}`);
 
-        // 2. Process Matching Asynchronously (Fire & Forget for MVP)
+        // 2. 비동기적으로 매칭 처리 (MVP를 위해 Fire & Forget 방식 사용)
         this.processMatching(request.id, request).catch(err => console.error(err));
 
         return request;
     }
 
     /**
-     * Core Matching Logic (Async Worker)
+     * 핵심 매칭 로직 (비동기 워커)
      * 
-     * Executes the matching pipeline:
-     * 1. Fetch Requester Entity
-     * 2. Find Candidates (PostGIS Filter)
-     * 3. Calculate Scores (Strategy Execution)
-     * 4. Save Top Matches
+     * 매칭 파이프라인을 실행합니다:
+     * 1. 요청자 엔티티 조회
+     * 2. 후보군 찾기 (PostGIS 필터)
+     * 3. 점수 계산 (전략 실행)
+     * 4. 상위 매칭 결과 저장
      * 
-     * @param requestId - ID of the request to process
-     * @param mockData - Optional pre-loaded data for optimization/testing
+     * @param requestId - 처리할 요청의 ID
+     * @param mockData - 최적화/테스트를 위한 선택적 사전 로드 데이터
      */
     private async processMatching(requestId: string, mockData?: any) {
         console.log(`[MatchingService] Processing matching for ${requestId}...`);
+        const startTime = Date.now();
+        let strategyName = 'unknown';
+
         try {
             let request = mockData;
 
@@ -137,7 +142,7 @@ export class MatchingService {
                 return;
             }
 
-            // 2 & 3. Fetch Requester and Candidates in parallel for speed
+            // 2 & 3. 속도를 위해 요청자와 후보군을 병렬로 조회
             const settings = StrategySettingsSchema.parse(request.settings || {});
 
             const [requester, candidates] = await Promise.all([
@@ -145,7 +150,7 @@ export class MatchingService {
                 this.getCandidates(request, settings)
             ]);
 
-            // Simulation: Apply filters directly for playground consistency
+            // 시뮬레이션: 플레이그라운드 일관성을 위해 필터를 직접 적용
             if (request.filters?.categories) {
                 requester.profile.categories = request.filters.categories;
             }
@@ -153,16 +158,17 @@ export class MatchingService {
                 requester.profile.location = request.filters.location;
             }
 
-            // 4. Select & Execute Strategy
-            const strategy = this.strategies.get(request.strategy) || this.strategies.get('distance');
+            // 4. 전략 선택 및 실행
+            strategyName = request.strategy || 'distance';
+            const strategy = this.strategies.get(strategyName) || this.strategies.get('distance');
             if (!strategy) {
-                throw new Error(`Unknown strategy: ${request.strategy}`);
+                throw new Error(`Unknown strategy: ${strategyName}`);
             }
 
             const matches = strategy.execute(requester, candidates, settings);
             console.log(`[MatchingService] Strategy executed in parallel mode, matches: ${matches.length}`);
 
-            // 5. Save Matches to DB
+            // 5. 매칭 결과를 DB에 저장
             if (matches.length > 0) {
                 const matchRecords = matches.map(match => ({
                     request_id: requestId,
@@ -179,7 +185,7 @@ export class MatchingService {
 
                 if (insertError) {
                     console.error(`[MatchingService] Failed to save matches: ${insertError.message}`);
-                    // Fallback to Cache failure
+                    // 캐시 실패 시 폴백
                     if (this.cacheManager) {
                         await this.cacheManager.set(`results:${requestId}`, matches);
                     }
@@ -190,11 +196,15 @@ export class MatchingService {
                 console.log(`[MatchingService] No matches found for ${requestId}`);
             }
 
-            // 6. Mark Request as Completed
+            // 6. 요청을 완료 상태로 표시
             await this.client
                 .from('matching_requests')
                 .update({ status: 'completed' })
                 .eq('id', requestId);
+
+            // 메트릭 기록 (Success)
+            this.metricsService.matchingRequestCounter.inc({ strategy: strategyName, status: 'success' });
+            this.metricsService.matchingDurationHistogram.observe({ strategy: strategyName }, (Date.now() - startTime) / 1000);
 
         } catch (e) {
             console.error('[MatchingService] Matching Process Error:', e);
@@ -202,26 +212,29 @@ export class MatchingService {
                 .from('matching_requests')
                 .update({ status: 'failed' })
                 .eq('id', requestId);
+
+            // 메트릭 기록 (Error)
+            this.metricsService.matchingRequestCounter.inc({ strategy: strategyName, status: 'error' });
         }
     }
 
     /**
      * ==================================================================================
-     * [SECTION] Data Fetching & PostGIS Integration
+     * [SECTION] 데이터 조회 및 PostGIS 통합
      * ==================================================================================
      */
 
     /**
-     * Parse PostGIS Location
-     * Converts GeoJSON or Array format to [lat, lng] tuple.
+     * PostGIS 위치 정보 파싱
+     * GeoJSON 또는 배열 형식을 [lat, lng] 튜플로 변환합니다.
      */
     private parseLocation(loc: any): [number, number] | undefined {
         if (!loc) return undefined;
-        // PostGIS GeoJSON Format: { type: "Point", coordinates: [lng, lat] }
+        // PostGIS GeoJSON 형식: { type: "Point", coordinates: [lng, lat] }
         if (loc.coordinates && Array.isArray(loc.coordinates)) {
             return [loc.coordinates[1], loc.coordinates[0]];
         }
-        // Fallback for array format [lat, lng]
+        // 배열 형식에 대한 폴백 [lat, lng]
         if (Array.isArray(loc) && loc.length === 2) {
             return loc as [number, number];
         }
@@ -229,8 +242,8 @@ export class MatchingService {
     }
 
     /**
-     * Fetch Entity Details
-     * Retrieves User or Team profile from the Database.
+     * 엔티티 상세 정보 조회
+     * 데이터베이스에서 사용자 또는 팀 프로필을 가져옵니다.
      */
     private async getEntity(id: string, type: 'user' | 'team'): Promise<MatchableEntity> {
         const table = type === 'user' ? 'users' : 'teams';
@@ -265,10 +278,10 @@ export class MatchingService {
     }
 
     /**
-     * Search Candidates using PostGIS
+     * PostGIS를 사용한 후보군 검색
      * 
-     * Calls a stored procedure (RPC) 'get_candidates_v2' to efficiently find
-     * entities within a radius and filter by criteria (categories, negative filter).
+     * 반경 내의 엔티티를 효율적으로 찾고 기준(카테고리, 네거티브 필터)에 따라 필터링하기 위해
+     * 저장 프로시저(RPC) 'get_candidates_v2'를 호출합니다.
      */
     private async getCandidates(
         request: any,
@@ -330,8 +343,8 @@ export class MatchingService {
     }
 
     /**
-     * Fallback Candidate Search (No GIS)
-     * Used when PostGIS RPC fails or is unavailable. Returns top 50 entities.
+     * 후보군 검색에 실패했을 때의 폴백 (GIS 미사용)
+     * PostGIS RPC가 실패하거나 사용할 수 없을 때 사용됩니다. 상위 50개의 엔티티를 반환합니다.
      */
     private async fallbackGetCandidates(request: any): Promise<MatchableEntity[]> {
         const table = request.target_type === 'user' ? 'users' : 'teams';
@@ -351,7 +364,7 @@ export class MatchingService {
     }
 
     private getMockCandidates(request: any): MatchableEntity[] {
-        // Only provide mocks in development or if specifically enabled
+        // 개발 환경이거나 특별히 활성화된 경우에만 모의 데이터 제공
         const isDev = process.env.NODE_ENV === 'development' || !process.env.NODE_ENV;
         if (!isDev) {
             console.warn('[MatchingService] Skipping mock data in non-dev environment');
@@ -373,16 +386,26 @@ export class MatchingService {
 
     /**
      * ==================================================================================
-     * [SECTION] Result Retrieval & Actions
+     * [SECTION] 결과 조회 및 액션
      * ==================================================================================
      */
 
     /**
-     * Get Matching Results
-     * Retrieves computed matches from DB, enriching them with entity details (Name, Avatar).
+     * 매칭 결과 가져오기
+     * DB에서 계산된 매칭 결과를 가져오고 엔티티 상세 정보(이름, 아바타)를 보강합니다.
+     * 성능 향상을 위해 5분간 결과를 캐싱합니다.
      */
     async getMatchResults(requestId: string) {
-        // 1. Check Request Status
+        // 1. 캐시 확인
+        if (this.cacheManager) {
+            const cached: any = await this.cacheManager.get(`results:${requestId}`);
+            if (cached) {
+                console.log(`[MatchingService] Returning CACHED results for ${requestId}`);
+                return cached;
+            }
+        }
+
+        // 2. 요청 상태 확인
         const { data: request } = await this.client
             .from('matching_requests')
             .select('status')
@@ -391,13 +414,13 @@ export class MatchingService {
 
         const status = request?.status || 'active';
 
-        // 2. Fetch Matches
+        // 3. 매칭 결과 조회
         const { data: matches, error } = await this.client
             .from('matches')
             .select('*')
             .eq('request_id', requestId);
 
-        // 3. Handle Mock Logic (for Demo Requests)
+        // 4. 모의 데이터 로직 처리 (데모 요청용)
         if ((error || !matches || matches.length === 0) && requestId.startsWith('mock-')) {
             console.log(`[MatchingService] Returning mock results for ${requestId}`);
             const mockResults = Array.from({ length: 3 }).map((_, i) => ({
@@ -409,7 +432,13 @@ export class MatchingService {
                 metadata: { distance: 1.2 + i * 0.5 },
                 createdAt: new Date().toISOString()
             }));
-            return { status: 'completed', results: mockResults };
+            const response = { status: 'completed', results: mockResults };
+
+            // 캐시에 저장 (300초 = 5분)
+            if (this.cacheManager) {
+                await this.cacheManager.set(`results:${requestId}`, response, 300000);
+            }
+            return response;
         }
 
         if (error || !matches) {
@@ -419,7 +448,7 @@ export class MatchingService {
 
         console.log(`[MatchingService] Found ${matches.length} matches in DB`);
 
-        // Enrich matches with profile details
+        // 프로필 정보로 매칭 결과 보강
         const results = await Promise.all(
             matches.map(async (match) => {
                 const entityA = await this.getEntityDetails(match.entity_a_id, match.entity_a_type);
@@ -438,10 +467,17 @@ export class MatchingService {
             })
         );
 
-        return {
+        const finalResponse = {
             status,
             results,
         };
+
+        // 5. 캐시에 저장 (5분 TTL)
+        if (this.cacheManager && status === 'completed') {
+            await this.cacheManager.set(`results:${requestId}`, finalResponse, 300000);
+        }
+
+        return finalResponse;
     }
 
     private async getEntityDetails(id: string, type: string): Promise<any> {
@@ -468,9 +504,9 @@ export class MatchingService {
     }
 
     /**
-     * Accept Match
-     * Updates status to 'accepted'. Implementation can be extended to handle
-     * bilateral acceptance logic (check if other party also accepted).
+     * 매칭 수락
+     * 상태를 'accepted'로 업데이트합니다. 이 구현은 상호 수락 로직
+     * (상대방도 수락했는지 확인)을 처리하도록 확장될 수 있습니다.
      */
     async acceptMatch(matchId: string, actorId: string) {
         const { data } = await this.client
@@ -484,8 +520,8 @@ export class MatchingService {
     }
 
     /**
-     * Reject Match
-     * Updates status to 'rejected'. Used for negative filtering in future.
+     * 매칭 거절
+     * 상태를 'rejected'로 업데이트합니다. 향후 네거티브 필터링에 사용됩니다.
      */
     async rejectMatch(matchId: string, actorId: string) {
         const { data } = await this.client

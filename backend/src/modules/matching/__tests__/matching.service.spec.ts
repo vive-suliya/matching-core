@@ -4,11 +4,20 @@ import { SupabaseService } from '../../../database/supabase.service';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { CreateMatchingRequestDto, MatchingStrategy, RequesterType, TargetType } from '../dto/create-matching-request.dto';
 import { InternalServerErrorException } from '@nestjs/common';
+import { MetricsService } from '../../monitoring/metrics.service';
 
+/**
+ * MatchingService 유닛 테스트
+ */
 describe('MatchingService', () => {
     let service: MatchingService;
     let mockSupabaseClient: any;
     let mockSupabaseBuilder: any;
+
+    const mockMetricsService = {
+        matchingRequestCounter: { inc: jest.fn() },
+        matchingDurationHistogram: { observe: jest.fn() },
+    };
 
     const mockCacheManager = {
         get: jest.fn(),
@@ -17,6 +26,7 @@ describe('MatchingService', () => {
 
     const originalEnv = process.env;
 
+    // 환경 변수 설정 (개발 모드 폴백 테스트를 위해)
     beforeAll(() => {
         jest.resetModules();
         process.env = { ...originalEnv, NODE_ENV: 'development' };
@@ -27,15 +37,15 @@ describe('MatchingService', () => {
     });
 
     beforeEach(async () => {
-        // Robust Recursive Mock Builder
+        // 강력한 재귀적 모의 라이브러리 빌더 (Chaining 지원)
         mockSupabaseBuilder = {
             select: jest.fn().mockReturnThis(),
             insert: jest.fn().mockReturnThis(),
             update: jest.fn().mockReturnThis(),
             eq: jest.fn().mockReturnThis(),
             order: jest.fn().mockReturnThis(),
-            limit: jest.fn().mockResolvedValue({ data: [], error: null }), // Default Promise return
-            single: jest.fn().mockResolvedValue({ data: {}, error: null }), // Default Promise return
+            limit: jest.fn().mockResolvedValue({ data: [], error: null }), // 기본 Promise 반환
+            single: jest.fn().mockResolvedValue({ data: {}, error: null }), // 기본 Promise 반환
         };
 
         mockSupabaseClient = {
@@ -56,18 +66,25 @@ describe('MatchingService', () => {
                     provide: CACHE_MANAGER,
                     useValue: mockCacheManager,
                 },
+                {
+                    provide: MetricsService,
+                    useValue: mockMetricsService,
+                },
             ],
         }).compile();
 
         service = module.get<MatchingService>(MatchingService);
     });
 
-    it('should be defined', () => {
+    it('서비스가 정의되어 있어야 함', () => {
         expect(service).toBeDefined();
     });
 
-    describe('createMatchingRequest', () => {
-        it('should create request and trigger background processing', async () => {
+    /**
+     * [테스트 세그먼트] 매칭 요청 생성
+     */
+    describe('createMatchingRequest (매칭 요청 생성)', () => {
+        it('요청을 생성하고 비동기 처리를 시작해야 함', async () => {
             const mockRequestData = {
                 id: 'test-req-id',
                 requester_id: 'user-1',
@@ -99,8 +116,11 @@ describe('MatchingService', () => {
         });
     });
 
-    describe('getCandidates (private method test via public interface logic)', () => {
-        it('should call PostGIS RPC function', async () => {
+    /**
+     * [테스트 세그먼트] 후보군 검색 (getCandidates)
+     */
+    describe('getCandidates (후보군 검색)', () => {
+        it('PostGIS RPC 함수를 호출해야 함', async () => {
             const mockCandidates = [
                 { id: 'c1', distance: 1000, categories: ['sports'], location: { coordinates: [126.9780, 37.5665] } },
             ];
@@ -127,13 +147,13 @@ describe('MatchingService', () => {
             }));
         });
 
-        it('should return mock candidates on RPC error in dev mode', async () => {
+        it('개발 모드에서 RPC 에러 발생 시 모의 후보군을 반환해야 함', async () => {
             mockSupabaseClient.rpc.mockResolvedValue({
                 data: null,
                 error: { message: 'DB Error' },
             });
 
-            // Ensure fallback also simulates failure
+            // 폴백 모드에서도 실패 시뮬레이션
             mockSupabaseBuilder.limit.mockResolvedValue({ data: null, error: { message: 'Fallback Error' } });
 
             const getCandidates = (service as any).getCandidates.bind(service);
@@ -145,7 +165,7 @@ describe('MatchingService', () => {
 
             const result = await getCandidates(request, {});
 
-            // Should fall back to mock generation in Dev mode
+            // 개발 모드에서는 모의 데이터 생성으로 폴백되어야 함
             expect(result).toHaveLength(5);
         });
     });

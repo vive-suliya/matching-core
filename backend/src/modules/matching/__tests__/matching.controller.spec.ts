@@ -5,16 +5,16 @@ import { MatchingStrategy } from '../dto/create-matching-request.dto';
 import { CurrentUserData } from '../../auth/decorators/current-user.decorator';
 
 /**
- * MatchingController Tests
- *
- * Verifies the interaction between the controller and the service layer.
- * Focuses on parameter passing and authentication integration.
+ * MatchingController 테스트
+ * 
+ * 컨트롤러와 서비스 계층 간의 상호작용을 검증합니다.
+ * 주로 파라미터 전달 및 인증 정보 통합에 중점을 둡니다.
  */
 describe('MatchingController', () => {
     let controller: MatchingController;
     let service: MatchingService;
 
-    // Mock Service Implementation
+    // 서비스 모킹(Mock) 구현
     const mockMatchingService = {
         createMatchingRequest: jest.fn(),
         getMatchResults: jest.fn(),
@@ -37,16 +37,16 @@ describe('MatchingController', () => {
         service = module.get<MatchingService>(MatchingService);
     });
 
-    it('should be defined', () => {
+    it('컨트롤러가 정의되어 있어야 함', () => {
         expect(controller).toBeDefined();
     });
 
     /**
-     * Test Segment: Matching Request Creation
-     * Verifies that the authenticated user ID is correctly injected into the DTO.
+     * [테스트 세그먼트] 매칭 요청 생성
+     * 인증된 사용자 ID가 DTO에 올바르게 주입되는지 확인합니다.
      */
-    describe('createRequest', () => {
-        it('should call service.createMatchingRequest with authenticated user ID', async () => {
+    describe('createRequest (매칭 요청 생성)', () => {
+        it('인증된 사용자 ID를 포함하여 service.createMatchingRequest를 호출해야 함', async () => {
             const dto = {
                 strategy: MatchingStrategy.HYBRID,
                 filters: {
@@ -57,7 +57,7 @@ describe('MatchingController', () => {
                 requesterType: 'user' as const
             };
 
-            // Mock authenticated user injected by @CurrentUser() guard
+            // @CurrentUser() 가드에 의해 주입될 모의 사용자 데이터
             const mockUser: CurrentUserData = { userId: 'u1', email: 'test@example.com' };
 
             mockMatchingService.createMatchingRequest.mockResolvedValue({
@@ -66,16 +66,16 @@ describe('MatchingController', () => {
                 ...dto
             });
 
-            // Call controller with mock user and DTO
+            // 모의 사용자와 DTO로 컨트롤러 메서드 호출
             const result = await controller.createRequest(mockUser, dto as any);
 
             expect(result.id).toBe('req-1');
             expect(result.requesterId).toBe('u1');
 
-            // Verify service called with correct parameters
+            // 서비스가 올바른 파라미터와 함께 호출되었는지 확인
             expect(service.createMatchingRequest).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    requesterId: 'u1', // Validates ID injection
+                    requesterId: 'u1', // ID 주입 검증
                     strategy: MatchingStrategy.HYBRID
                 })
             );
@@ -83,11 +83,11 @@ describe('MatchingController', () => {
     });
 
     /**
-     * Test Segment: Result Retrieval
-     * Verifies fetching matching results using request ID.
+     * [테스트 세그먼트] 결과 조회
+     * 요청 ID를 통한 매칭 결과 조회 로직을 확인합니다.
      */
-    describe('getResults', () => {
-        it('should return service results by request ID', async () => {
+    describe('getResults (결과 조회)', () => {
+        it('요청 ID에 해당하는 서비스 결과를 반환해야 함', async () => {
             mockMatchingService.getMatchResults.mockResolvedValue({
                 status: 'completed',
                 results: []
@@ -101,11 +101,11 @@ describe('MatchingController', () => {
     });
 
     /**
-     * Test Segment: Match Acceptance
-     * Verifies the acceptance logic including actor identification.
+     * [테스트 세그먼트] 매칭 수락
+     * 수행자(Actor) 식별을 포함한 수락 로직을 확인합니다.
      */
-    describe('acceptMatch', () => {
-        it('should call service.acceptMatch with match ID and actor ID', async () => {
+    describe('acceptMatch (매칭 수락)', () => {
+        it('매칭 ID와 수행자 ID를 포함하여 service.acceptMatch를 호출해야 함', async () => {
             const mockUser: CurrentUserData = { userId: 'u1', email: 'test@example.com' };
 
             mockMatchingService.acceptMatch.mockResolvedValue({
@@ -113,7 +113,6 @@ describe('MatchingController', () => {
                 status: 'accepted'
             });
 
-            // Pass mockUser as first argument, matchId as second
             const result = await controller.acceptMatch(mockUser, 'm1');
 
             expect(result.status).toBe('accepted');
@@ -122,11 +121,11 @@ describe('MatchingController', () => {
     });
 
     /**
-     * Test Segment: Match Rejection
-     * Verifies the rejection logic including actor identification.
+     * [테스트 세그먼트] 매칭 거절
+     * 수행자(Actor) 식별을 포함한 거절 로직을 확인합니다.
      */
-    describe('rejectMatch', () => {
-        it('should call service.rejectMatch with match ID and actor ID', async () => {
+    describe('rejectMatch (매칭 거절)', () => {
+        it('매칭 ID와 수행자 ID를 포함하여 service.rejectMatch를 호출해야 함', async () => {
             const mockUser: CurrentUserData = { userId: 'u1', email: 'test@example.com' };
 
             mockMatchingService.rejectMatch.mockResolvedValue({

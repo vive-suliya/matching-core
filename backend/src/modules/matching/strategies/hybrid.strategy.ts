@@ -9,44 +9,44 @@ export class HybridStrategy extends BaseMatchingStrategy {
     private preferenceStrategy = new PreferenceStrategy();
 
     /**
-     * Placeholder score method.
-     * In Hybrid strategy, scoring logic is embedded in execute() to handle dynamic weights.
+     * 임시 점수 메서드.
+     * 하이브리드 전략에서 점수 로직은 동적 가중치를 처리하기 위해 execute() 내부에 포함되어 있습니다.
      */
     score(requester: MatchableEntity, candidate: MatchableEntity): number {
         return 0;
     }
 
     /**
-     * Execute Hybrid Matching
+     * 하이브리드 매칭 실행
      * 
-     * Combines Distance and Preference scores using a weighted average.
-     * Allows dynamic tuning of weights via StrategySettings (e.g., prioritize distance over taste).
+     * 거리 점수와 선호도 점수를 가중 평균을 사용하여 결합합니다.
+     * StrategySettings를 통해 가중치를 동적으로 조정할 수 있습니다 (예: 취향보다 거리를 우선시).
      * 
-     * Formula: Final = (DistanceScore * Weight_D) + (PreferenceScore * Weight_P)
+     * 공식: 최종 점수 = (거리 점수 * 거리 가중치) + (선호도 점수 * 선호도 가중치)
      * 
-     * @param requester - The entity requesting the match
-     * @param candidates - List of potential matches
-     * @param settings - Configuration including weights (distanceWeight, preferenceWeight)
-     * @returns {Match[]} Ranked list of matches
+     * @param requester - 매칭을 요청하는 엔티티
+     * @param candidates - 잠재적 매칭 후보 리스트
+     * @param settings - 가중치를 포함한 설정 (distanceWeight, preferenceWeight)
+     * @returns {Match[]} 순위가 지정된 매칭 결과 리스트
      */
     execute(requester: MatchableEntity, candidates: MatchableEntity[], settings?: any): Match[] {
-        const wDistance = settings?.distanceWeight ?? 0.7; // Default: Distance dominant (70%)
-        const wPreference = settings?.preferenceWeight ?? 0.3; // Default: Preference secondary (30%)
+        const wDistance = settings?.distanceWeight ?? 0.7; // 기본값: 거리 우선 (70%)
+        const wPreference = settings?.preferenceWeight ?? 0.3; // 기본값: 선호도 보조 (30%)
 
         return candidates
             .map(candidate => {
-                // 1. Calculate Component Scores
-                // Use DB pre-calculated scores if available, otherwise calculate on-the-fly
+                // 1. 개별 점수 계산
+                // 가능하면 DB에서 미리 계산된 점수를 사용하고, 그렇지 않으면 즉석에서 계산합니다.
                 const dScore = this.distanceStrategy.score(requester, candidate);
 
                 const pScore = candidate.profile?.category_match_score !== undefined
                     ? Number(candidate.profile.category_match_score)
                     : this.preferenceStrategy.score(requester, candidate);
 
-                // 2. Weighted Average
+                // 2. 가중 평균 계산
                 const finalScore = (dScore * wDistance) + (pScore * wPreference);
 
-                // 3. Generate Explanation (Optional)
+                // 3. 설명 생성 (선택 사항)
                 let explanation = '';
                 if (settings?.enableExplanation) {
                     explanation = this.generateExplanation(requester, candidate, finalScore, dScore, pScore, wDistance, wPreference);
@@ -64,13 +64,13 @@ export class HybridStrategy extends BaseMatchingStrategy {
                     },
                 };
             })
-            .sort((a, b) => b.score - a.score) // Sort by Final Score Descending
-            .slice(0, 10); // Return Top 10
+            .sort((a, b) => b.score - a.score) // 최종 점수 내림차순 정렬
+            .slice(0, 10); // 상위 10개 반환
     }
 
     /**
-     * Generate Human-Readable Explanation
-     * Creates a summary string explaining why this match was chosen.
+     * 사람이 읽을 수 있는 설명 생성
+     * 이 매치가 선택된 이유를 설명하는 요약 문자열을 만듭니다.
      */
     protected generateExplanation(
         requester: MatchableEntity,
