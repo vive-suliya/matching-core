@@ -8,30 +8,39 @@ import { InternalServerErrorException } from '@nestjs/common';
 describe('MatchingService', () => {
     let service: MatchingService;
     let mockSupabaseClient: any;
+    let mockSupabaseBuilder: any;
 
     const mockCacheManager = {
         get: jest.fn(),
         set: jest.fn(),
     };
 
+    const originalEnv = process.env;
+
+    beforeAll(() => {
+        jest.resetModules();
+        process.env = { ...originalEnv, NODE_ENV: 'development' };
+    });
+
+    afterAll(() => {
+        process.env = originalEnv;
+    });
+
     beforeEach(async () => {
-        // Mock Supabase Client Chain
-        const mockSingle = jest.fn();
-        const mockSelect = jest.fn().mockReturnValue({ single: mockSingle, order: jest.fn().mockReturnValue({ data: [] }), limit: jest.fn().mockReturnValue({ data: [] }) });
-        const mockInsert = jest.fn().mockReturnValue({ select: mockSelect });
-        const mockUpdate = jest.fn().mockReturnValue({ eq: jest.fn().mockReturnValue({ select: mockSelect }) });
-        const mockEq = jest.fn().mockReturnValue({ single: mockSingle, select: mockSelect });
-        const mockFrom = jest.fn().mockReturnValue({
-            insert: mockInsert,
-            select: mockSelect,
-            update: mockUpdate, // Update mock added
-            eq: mockEq,         // Eq mock added
-        });
-        const mockRpc = jest.fn();
+        // Robust Recursive Mock Builder
+        mockSupabaseBuilder = {
+            select: jest.fn().mockReturnThis(),
+            insert: jest.fn().mockReturnThis(),
+            update: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockReturnThis(),
+            order: jest.fn().mockReturnThis(),
+            limit: jest.fn().mockResolvedValue({ data: [], error: null }), // Default Promise return
+            single: jest.fn().mockResolvedValue({ data: {}, error: null }), // Default Promise return
+        };
 
         mockSupabaseClient = {
-            from: mockFrom,
-            rpc: mockRpc,
+            from: jest.fn().mockReturnValue(mockSupabaseBuilder),
+            rpc: jest.fn(),
         };
 
         const module: TestingModule = await Test.createTestingModule({
@@ -69,15 +78,10 @@ describe('MatchingService', () => {
                 settings: {},
             };
 
-            // Setup mock implementation
-            mockSupabaseClient.from().insert().select().single.mockResolvedValue({
+            mockSupabaseBuilder.single.mockResolvedValue({
                 data: mockRequestData,
                 error: null,
             });
-
-            // Mock getEntity to avoid actual logic for now if possible, or just let it fail/mock inside
-            // Since processMatching is async (fire & forget), errors there won't fail this test unless we await it.
-            // But createMatchingRequest calls processMatching without await.
 
             const dto: CreateMatchingRequestDto = {
                 requesterId: 'user-1',
@@ -96,9 +100,6 @@ describe('MatchingService', () => {
     });
 
     describe('getCandidates (private method test via public interface logic)', () => {
-        // Since getCandidates is private, we test it through createMatchingRequest 
-        // OR we can use 'any' casting to access it for unit testing.
-
         it('should call PostGIS RPC function', async () => {
             const mockCandidates = [
                 { id: 'c1', distance: 1000, categories: ['sports'], location: { coordinates: [126.9780, 37.5665] } },
@@ -126,11 +127,14 @@ describe('MatchingService', () => {
             }));
         });
 
-        it('should throw InternalServerErrorException on RPC error', async () => {
+        it('should return mock candidates on RPC error in dev mode', async () => {
             mockSupabaseClient.rpc.mockResolvedValue({
                 data: null,
                 error: { message: 'DB Error' },
             });
+
+            // Ensure fallback also simulates failure
+            mockSupabaseBuilder.limit.mockResolvedValue({ data: null, error: { message: 'Fallback Error' } });
 
             const getCandidates = (service as any).getCandidates.bind(service);
             const request = {
@@ -139,7 +143,10 @@ describe('MatchingService', () => {
                 filters: { location: [37.5665, 126.9780] },
             };
 
-            await expect(getCandidates(request, {})).rejects.toThrow(InternalServerErrorException);
+            const result = await getCandidates(request, {});
+
+            // Should fall back to mock generation in Dev mode
+            expect(result).toHaveLength(5);
         });
     });
 });

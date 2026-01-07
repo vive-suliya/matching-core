@@ -29,10 +29,14 @@ export class MatchingService {
         ]);
     }
 
+    /**
+     * Helper to get Supabase Client safely
+     * Returns a mock client if Supabase is not configured (for dev/test resilience).
+     */
     private get client() {
         const client = this.supabase.getClient();
         if (!client) {
-            // Return a minimal mock with 'from' method that returns an object with methods
+            // Return a minimal mock for resilience
             return {
                 from: () => ({
                     insert: () => ({ select: () => ({ single: () => Promise.resolve({ data: null, error: { message: 'Supabase not configured' } }) }) }),
@@ -44,8 +48,25 @@ export class MatchingService {
         return client;
     }
 
+    /**
+     * ==================================================================================
+     * [SECTION] Request Lifecycle Management
+     * ==================================================================================
+     */
+
+    /**
+     * Create Matching Request
+     * 
+     * The entry point for the matching process.
+     * 1. Validates and saves the request to the Database.
+     * 2. Triggers the asynchronous matching process (Fire & Forget).
+     * 
+     * @param dto - Request details (strategy, filters, etc.)
+     * @returns {Object} The created request object
+     */
     async createMatchingRequest(dto: CreateMatchingRequestDto) {
         console.log(`[MatchingService] Creating request for ${dto.requesterId} (${dto.requesterType})`);
+
         // 1. Save Request to DB
         const { data: request, error } = await this.client
             .from('matching_requests')
@@ -85,6 +106,18 @@ export class MatchingService {
         return request;
     }
 
+    /**
+     * Core Matching Logic (Async Worker)
+     * 
+     * Executes the matching pipeline:
+     * 1. Fetch Requester Entity
+     * 2. Find Candidates (PostGIS Filter)
+     * 3. Calculate Scores (Strategy Execution)
+     * 4. Save Top Matches
+     * 
+     * @param requestId - ID of the request to process
+     * @param mockData - Optional pre-loaded data for optimization/testing
+     */
     private async processMatching(requestId: string, mockData?: any) {
         console.log(`[MatchingService] Processing matching for ${requestId}...`);
         try {
@@ -112,7 +145,7 @@ export class MatchingService {
                 this.getCandidates(request, settings)
             ]);
 
-            // 시뮬레이션을 위해 플레이그라운드 필터 반영
+            // Simulation: Apply filters directly for playground consistency
             if (request.filters?.categories) {
                 requester.profile.categories = request.filters.categories;
             }
@@ -120,7 +153,7 @@ export class MatchingService {
                 requester.profile.location = request.filters.location;
             }
 
-            // 4. Execute Strategy
+            // 4. Select & Execute Strategy
             const strategy = this.strategies.get(request.strategy) || this.strategies.get('distance');
             if (!strategy) {
                 throw new Error(`Unknown strategy: ${request.strategy}`);
@@ -146,7 +179,7 @@ export class MatchingService {
 
                 if (insertError) {
                     console.error(`[MatchingService] Failed to save matches: ${insertError.message}`);
-                    // If DB fails, cache in memory for Demo (if cache exists)
+                    // Fallback to Cache failure
                     if (this.cacheManager) {
                         await this.cacheManager.set(`results:${requestId}`, matches);
                     }
@@ -172,6 +205,16 @@ export class MatchingService {
         }
     }
 
+    /**
+     * ==================================================================================
+     * [SECTION] Data Fetching & PostGIS Integration
+     * ==================================================================================
+     */
+
+    /**
+     * Parse PostGIS Location
+     * Converts GeoJSON or Array format to [lat, lng] tuple.
+     */
     private parseLocation(loc: any): [number, number] | undefined {
         if (!loc) return undefined;
         // PostGIS GeoJSON Format: { type: "Point", coordinates: [lng, lat] }
@@ -185,6 +228,10 @@ export class MatchingService {
         return undefined;
     }
 
+    /**
+     * Fetch Entity Details
+     * Retrieves User or Team profile from the Database.
+     */
     private async getEntity(id: string, type: 'user' | 'team'): Promise<MatchableEntity> {
         const table = type === 'user' ? 'users' : 'teams';
         const { data } = await this.client
@@ -217,6 +264,12 @@ export class MatchingService {
         };
     }
 
+    /**
+     * Search Candidates using PostGIS
+     * 
+     * Calls a stored procedure (RPC) 'get_candidates_v2' to efficiently find
+     * entities within a radius and filter by criteria (categories, negative filter).
+     */
     private async getCandidates(
         request: any,
         settings: StrategySettings
@@ -276,6 +329,10 @@ export class MatchingService {
         }
     }
 
+    /**
+     * Fallback Candidate Search (No GIS)
+     * Used when PostGIS RPC fails or is unavailable. Returns top 50 entities.
+     */
     private async fallbackGetCandidates(request: any): Promise<MatchableEntity[]> {
         const table = request.target_type === 'user' ? 'users' : 'teams';
         const { data, error } = await this.client.from(table).select('*').limit(50);
@@ -314,6 +371,16 @@ export class MatchingService {
         }));
     }
 
+    /**
+     * ==================================================================================
+     * [SECTION] Result Retrieval & Actions
+     * ==================================================================================
+     */
+
+    /**
+     * Get Matching Results
+     * Retrieves computed matches from DB, enriching them with entity details (Name, Avatar).
+     */
     async getMatchResults(requestId: string) {
         // 1. Check Request Status
         const { data: request } = await this.client
@@ -330,7 +397,7 @@ export class MatchingService {
             .select('*')
             .eq('request_id', requestId);
 
-        // 3. Handle Mock Logic
+        // 3. Handle Mock Logic (for Demo Requests)
         if ((error || !matches || matches.length === 0) && requestId.startsWith('mock-')) {
             console.log(`[MatchingService] Returning mock results for ${requestId}`);
             const mockResults = Array.from({ length: 3 }).map((_, i) => ({
@@ -352,6 +419,7 @@ export class MatchingService {
 
         console.log(`[MatchingService] Found ${matches.length} matches in DB`);
 
+        // Enrich matches with profile details
         const results = await Promise.all(
             matches.map(async (match) => {
                 const entityA = await this.getEntityDetails(match.entity_a_id, match.entity_a_type);
@@ -399,6 +467,11 @@ export class MatchingService {
         };
     }
 
+    /**
+     * Accept Match
+     * Updates status to 'accepted'. Implementation can be extended to handle
+     * bilateral acceptance logic (check if other party also accepted).
+     */
     async acceptMatch(matchId: string, actorId: string) {
         const { data } = await this.client
             .from('matches')
@@ -410,6 +483,10 @@ export class MatchingService {
         return data || { id: matchId, status: 'accepted' };
     }
 
+    /**
+     * Reject Match
+     * Updates status to 'rejected'. Used for negative filtering in future.
+     */
     async rejectMatch(matchId: string, actorId: string) {
         const { data } = await this.client
             .from('matches')

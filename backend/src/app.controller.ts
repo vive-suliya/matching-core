@@ -11,6 +11,20 @@ export class AppController {
     private readonly supabase: SupabaseService
   ) { }
 
+  /**
+   * ==================================================================================
+   * [SECTION] Public Information
+   * ==================================================================================
+   */
+
+  /**
+   * Root Endpoint
+   * 
+   * Provides basic information about the Matching Core Engine.
+   * Useful for initial connectivity verification.
+   * 
+   * @returns {Object} Server name, version, status, and timestamp
+   */
   @Get()
   @ApiOperation({ summary: 'Welcome Endpoint', description: 'Returns basic server information' })
   getHello() {
@@ -22,13 +36,27 @@ export class AppController {
     };
   }
 
+  /**
+   * ==================================================================================
+   * [SECTION] Health & Monitoring
+   * ==================================================================================
+   */
+
+  /**
+   * Comprehensive Health Check
+   * 
+   * Performs a deep check of the system's health, including database connectivity.
+   * Calculates DB query latency and memory usage stats.
+   * 
+   * @returns {Object} Detailed health status, metrics, and environment info
+   */
   @Get('health')
   @ApiOperation({ summary: 'Health Check (DB 연결 포함)', description: 'Comprehensive system health status with database connectivity check' })
   @ApiResponse({ status: 200, description: 'System is healthy' })
   async getHealth() {
     const startTime = Date.now();
 
-    // DB 연결 테스트
+    // DB Connection Test
     let dbStatus = 'unknown';
     let dbLatency = 0;
 
@@ -66,6 +94,14 @@ export class AppController {
     };
   }
 
+  /**
+   * Liveness Probe (Kubernetes Standard)
+   * 
+   * A lightweight endpoint used by orchestrators (k8s, docker swarm) to check 
+   * if the application process is running. Does not check dependencies.
+   * 
+   * @returns {Object} { status: 'alive' }
+   */
   @Get('health/liveness')
   @ApiOperation({ summary: 'Liveness Probe (Kubernetes)', description: 'Simple check to verify the application is running' })
   @ApiResponse({ status: 200, description: 'Application is alive' })
@@ -73,6 +109,15 @@ export class AppController {
     return { status: 'alive' };
   }
 
+  /**
+   * Readiness Probe (Kubernetes Standard)
+   * 
+   * Checks if the application is ready to accept traffic.
+   * Verifies critical dependencies like Database connections.
+   * If this fails, the load balancer should stop sending traffic to this pod.
+   * 
+   * @returns {Object} { status: 'ready' } or error details
+   */
   @Get('health/readiness')
   @ApiOperation({ summary: 'Readiness Probe (Kubernetes)', description: 'Check if the application is ready to serve traffic' })
   @ApiResponse({ status: 200, description: 'Application is ready' })

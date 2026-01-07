@@ -7,14 +7,36 @@ export class DistanceStrategy extends BaseMatchingStrategy {
     name = 'distance';
     private preferenceStrategy = new PreferenceStrategy();
 
+    /**
+     * ==================================================================================
+     * [SECTION] Score Calculation
+     * ==================================================================================
+     */
+
+    /**
+     * Calculate Score
+     * 
+     * Computes a score primarily based on physical distance.
+     * Closer candidates receive significantly higher scores.
+     * 
+     * Logic:
+     * 1. Check for pre-calculated distance from PostGIS (preferred).
+     * 2. Fallback to Haversine formula if DB distance is missing.
+     * 3. Apply non-linear decay function to distance (exponential drop-off).
+     * 4. Add small weight (20%) for rating/reputation.
+     * 
+     * @param requester - The entity requesting the match
+     * @param candidate - The potential match candidate
+     * @returns {number} Score (0-100)
+     */
     score(requester: MatchableEntity, candidate: MatchableEntity): number {
-        // DB에서 미리 계산된 거리가 있다면 사용 (미터 단위 -> 킬로미터 단위 변환)
+        // 1. Get Distance (Use DB calculated value if available for performance)
         let distance = candidate.profile.distance !== undefined ? candidate.profile.distance / 1000 : undefined;
 
-        // 데이터가 없으면 직접 계산 (Fallback)
+        // 2. Fallback Calculation (Haversine)
         if (distance === undefined) {
             if (!requester.profile.location || !candidate.profile.location) {
-                return 0;
+                return 0; // No location, impossible to match by distance
             }
             distance = this.calculateDistance(
                 requester.profile.location,
@@ -22,7 +44,8 @@ export class DistanceStrategy extends BaseMatchingStrategy {
             );
         }
 
-        // Distance based score (closer is better)
+        // 3. Distance Scoring Rule (Step Function)
+        // Closer is better. 0.5km is perfect score.
         let distanceScore = 0;
         if (distance <= 0.5) distanceScore = 100;
         else if (distance <= 1) distanceScore = 95;
@@ -32,21 +55,29 @@ export class DistanceStrategy extends BaseMatchingStrategy {
         else if (distance <= 20) distanceScore = 30;
         else distanceScore = 10;
 
-        // Rating Score
+        // 4. Rating Bonus (20% Weight)
+        // High rated entities get a slight boost even if further away
         const ratingScore = candidate.profile.averageRating
             ? candidate.profile.averageRating * 10
-            : 70;
+            : 70; // Default rating
 
-        // Final Score
+        // Final Weighted Score
         const finalScore = distanceScore * 0.8 + ratingScore * 0.2;
 
         return Math.round(finalScore * 100) / 100;
     }
 
+    /**
+     * Measure & Rank Candidates
+     * 
+     * Iterates through all candidates, scores them, and returns the top 50 matches.
+     */
     execute(requester: MatchableEntity, candidates: MatchableEntity[], settings?: any): Match[] {
         return candidates
             .map(candidate => {
                 const finalScore = this.score(requester, candidate);
+
+                // Calculate preference match score for metadata/debug
                 const pScore = candidate.profile?.category_match_score !== undefined
                     ? Number(candidate.profile.category_match_score)
                     : this.preferenceStrategy.score(requester, candidate);
@@ -72,6 +103,16 @@ export class DistanceStrategy extends BaseMatchingStrategy {
             .slice(0, 50);
     }
 
+    /**
+     * ==================================================================================
+     * [SECTION] Geometric Utilities
+     * ==================================================================================
+     */
+
+    /**
+     * Haversine Formula
+     * Calculates great-circle distance between two points on a sphere.
+     */
     private calculateDistance(
         loc1: [number, number],
         loc2: [number, number],

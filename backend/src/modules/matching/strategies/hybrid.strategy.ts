@@ -8,26 +8,45 @@ export class HybridStrategy extends BaseMatchingStrategy {
     private distanceStrategy = new DistanceStrategy();
     private preferenceStrategy = new PreferenceStrategy();
 
+    /**
+     * Placeholder score method.
+     * In Hybrid strategy, scoring logic is embedded in execute() to handle dynamic weights.
+     */
     score(requester: MatchableEntity, candidate: MatchableEntity): number {
-        // This will be called by BaseMatchingStrategy.execute if no settings provided,
-        // but Hybrid usually needs weights.
         return 0;
     }
 
+    /**
+     * Execute Hybrid Matching
+     * 
+     * Combines Distance and Preference scores using a weighted average.
+     * Allows dynamic tuning of weights via StrategySettings (e.g., prioritize distance over taste).
+     * 
+     * Formula: Final = (DistanceScore * Weight_D) + (PreferenceScore * Weight_P)
+     * 
+     * @param requester - The entity requesting the match
+     * @param candidates - List of potential matches
+     * @param settings - Configuration including weights (distanceWeight, preferenceWeight)
+     * @returns {Match[]} Ranked list of matches
+     */
     execute(requester: MatchableEntity, candidates: MatchableEntity[], settings?: any): Match[] {
-        const wDistance = settings?.distanceWeight ?? 0.7;
-        const wPreference = settings?.preferenceWeight ?? 0.3;
+        const wDistance = settings?.distanceWeight ?? 0.7; // Default: Distance dominant (70%)
+        const wPreference = settings?.preferenceWeight ?? 0.3; // Default: Preference secondary (30%)
 
         return candidates
             .map(candidate => {
-                // DB에서 계산된 점수가 있으면 우선 사용, 없으면 전략 클래스로 계산
+                // 1. Calculate Component Scores
+                // Use DB pre-calculated scores if available, otherwise calculate on-the-fly
                 const dScore = this.distanceStrategy.score(requester, candidate);
+
                 const pScore = candidate.profile?.category_match_score !== undefined
                     ? Number(candidate.profile.category_match_score)
                     : this.preferenceStrategy.score(requester, candidate);
 
+                // 2. Weighted Average
                 const finalScore = (dScore * wDistance) + (pScore * wPreference);
 
+                // 3. Generate Explanation (Optional)
                 let explanation = '';
                 if (settings?.enableExplanation) {
                     explanation = this.generateExplanation(requester, candidate, finalScore, dScore, pScore, wDistance, wPreference);
@@ -45,10 +64,14 @@ export class HybridStrategy extends BaseMatchingStrategy {
                     },
                 };
             })
-            .sort((a, b) => b.score - a.score)
-            .slice(0, 10);
+            .sort((a, b) => b.score - a.score) // Sort by Final Score Descending
+            .slice(0, 10); // Return Top 10
     }
 
+    /**
+     * Generate Human-Readable Explanation
+     * Creates a summary string explaining why this match was chosen.
+     */
     protected generateExplanation(
         requester: MatchableEntity,
         candidate: MatchableEntity,
